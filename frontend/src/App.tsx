@@ -194,7 +194,11 @@ function App() {
       </div>
 
       <footer>
-        <kbd>Ctrl</kbd> + <kbd>Enter</kbd> to convert &middot; click output to copy
+        <span><kbd>Ctrl</kbd> + <kbd>Enter</kbd> to convert &middot; click output to copy</span>
+        <span className="footer-links">
+          <a href="https://github.com/Prem-Duvvapu/sqlbridge/issues/new?template=bug_report.md" target="_blank" rel="noopener">Report bug</a>
+          <a href="https://github.com/Prem-Duvvapu/sqlbridge/issues/new?template=feedback.md" target="_blank" rel="noopener">Give feedback</a>
+        </span>
       </footer>
     </div>
   )

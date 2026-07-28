@@ -1,7 +1,6 @@
-* { margin: 0; padding: 0; box-sizing: border-box; }
-
-/* ── fonts ── */
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap');
+
+* { margin: 0; padding: 0; box-sizing: border-box; }
 
 /* ── theme tokens ── */
 
@@ -486,12 +485,29 @@ h1 {
 /* ── footer ── */
 
 footer {
-  text-align: center;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 8px;
   font-size: 12px;
   color: var(--text-muted);
-  padding-top: 6px;
+  padding-top: 8px;
   font-weight: 500;
 }
+
+.footer-links {
+  display: flex;
+  gap: 12px;
+}
+
+.footer-links a {
+  color: var(--text-dim);
+  text-decoration: none;
+  transition: color .15s;
+}
+
+.footer-links a:hover { color: var(--accent); }
 
 kbd {
   background: var(--btn-bg);
