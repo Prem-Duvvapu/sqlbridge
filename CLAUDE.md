@@ -48,13 +48,31 @@ until the Java converters were ported to TypeScript and moved into the browser (
 
 ### Conversion pipeline (`src/converters/`)
 
-- A `Converter` is `{ source, target, convert(sql) → { output, warnings, blocked? } }`.
-  One object per direction: `oracleToMysql.ts`, `mysqlToOracle.ts`.
+- A `Converter` is `{ source, target, convert(sql) → StatementConversion }` where
+  `StatementConversion` is `{ output, warnings, blocked? }` — it operates on **one
+  statement**. One object per direction: `oracleToMysql.ts`, `mysqlToOracle.ts`.
 - `index.ts` is the registry (replaces Spring's `ConverterRegistry`): keys converters by
-  `"source->target"`, exposes `convert()`, `getSources()`, `getTargetsFor()`. `convert()`
-  returns an error *result* for an unknown pair — it never throws.
+  `"source->target"`, exposes `convert()`, `getSources()`, `getTargetsFor()`.
+- `convert()` runs `convertScript()`: `splitStatements()` (`src/sql/split.ts`) → convert
+  each statement → `joinStatements()` with the original whitespace and terminators. It
+  returns a `ConvertResult` = `{ output, warnings, blocked?, statements: StatementResult[] }`.
+  Never throws — unknown pair or a converter bug both come back as a result.
+- Per-statement gating: a refused statement passes through unchanged; when the rest of
+  the script converted it gets a `-- SQLBridge: not translated` comment. `blocked` at the
+  top level is set only when *every* statement was refused, so a lone bad query still
+  shows the single "not translated" panel.
 - **Adding a dialect pair = one new `Converter` object + one line in the `CONVERTERS`
   array in `index.ts`.** Dropdowns, formatter language map, and routing follow.
+
+### Statement splitter (`src/sql/split.ts`)
+
+- `splitStatements(script)` is a lexer, not a parser. Tracks strings (`'` with `''`),
+  `"`/`` ` `` identifiers, `--` and `/* */` comments, and PL/SQL block depth
+  (`BEGIN`/`IF`/`LOOP`/`CASE` ++, `END` --) so a `;` inside a block or string doesn't
+  terminate. Handles a lone `/` line (Oracle) and `DELIMITER` directives (MySQL).
+- **Invariant:** `joinStatements` of an unmodified split reproduces the input exactly
+  (`split.test.ts` guards it). **Safety valve:** an unbalanced end (open string/block)
+  returns the whole input as one statement.
 
 ### How converters work
 

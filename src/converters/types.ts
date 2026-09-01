@@ -1,18 +1,41 @@
-export interface ConvertResult {
+/**
+ * What a converter produces for one statement.
+ *
+ * `blocked` is set when the confidence gate refused the statement rather than guessing:
+ * `output` is then the original SQL, untouched, and `reason` names the construct that
+ * needs a manual rewrite.
+ */
+export interface StatementConversion {
   output: string
   warnings: string[]
-  /**
-   * Set when the confidence gate refused the input rather than guessing at it.
-   * `output` is then the original SQL, untouched, and `reason` names the construct
-   * that needs a manual rewrite.
-   */
   blocked?: { reason: string }
 }
 
 export interface Converter {
   readonly source: string
   readonly target: string
-  convert(sql: string): ConvertResult
+  convert(sql: string): StatementConversion
+}
+
+/** One statement's conversion, plus where it sat in the script. */
+export interface StatementResult extends StatementConversion {
+  /** 0-based position among the script's non-empty statements. */
+  index: number
+  /** The statement's original SQL. */
+  input: string
+}
+
+/**
+ * The result of converting a whole script. `output` is the re-joined translation;
+ * `statements` is the per-statement breakdown; `warnings` is the flattened list for the
+ * summary; `blocked` is set only when *every* statement was refused (so the UI shows the
+ * single "not translated" panel, as it did before scripts were supported).
+ */
+export interface ConvertResult {
+  output: string
+  warnings: string[]
+  blocked?: { reason: string }
+  statements: StatementResult[]
 }
 
 export interface Dialect {

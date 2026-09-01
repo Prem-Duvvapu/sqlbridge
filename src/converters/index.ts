@@ -1,6 +1,7 @@
-import type { Converter, ConvertResult, Dialect } from './types'
+import type { Converter, ConvertResult, Dialect, StatementResult } from './types'
 import { oracleToMysql } from './oracleToMysql'
 import { mysqlToOracle } from './mysqlToOracle'
+import { joinStatements, splitStatements, type Statement } from '../sql/split'
 
 /**
  * Every conversion direction the app supports. Adding a dialect pair means writing one
@@ -25,24 +26,89 @@ function label(name: string): string {
   return LABELS[name] ?? name.charAt(0).toUpperCase() + name.slice(1)
 }
 
+const DELIMITER_LINE = /^\s*DELIMITER\b/i
+
 /**
- * Convert `sql` between dialects. Never throws: an unknown pair or a bug inside a
- * converter both come back as an error result the UI can render.
+ * Convert a whole script between dialects. Never throws: an unknown pair or a bug inside
+ * a converter both come back as an error result the UI can render.
+ *
+ * The script is split into statements, each converted on its own, then re-joined with the
+ * original whitespace and terminators. A statement the confidence gate refuses passes
+ * through unchanged; if the rest of the script converted, it gets a `-- SQLBridge:` note
+ * so it's obvious in the output which lines still need work.
  */
 export function convert(sql: string, source: string, target: string): ConvertResult {
   const converter = REGISTRY.get(key(source, target))
   if (!converter) {
     const msg = `No converter available for ${source} -> ${target}`
-    return { output: `Error: ${msg}`, warnings: [msg] }
+    return { output: `Error: ${msg}`, warnings: [msg], statements: [] }
   }
   try {
-    return converter.convert(sql)
+    return convertScript(sql, converter)
   } catch (e) {
     const detail = e instanceof Error ? e.message : String(e)
     return {
       output: sql,
       warnings: [`Conversion hit an internal error and stopped (${detail}). Your SQL is shown unchanged — nothing was translated.`],
+      statements: [],
     }
+  }
+}
+
+function convertScript(script: string, converter: Converter): ConvertResult {
+  const statements = splitStatements(script)
+
+  type Piece = { statement: Statement; result?: StatementResult; passthrough?: string }
+  const pieces: Piece[] = []
+
+  for (const statement of statements) {
+    const body = statement.sql.trim()
+    if (body === '') continue // whitespace / comment-only — dropped from the translation
+    if (DELIMITER_LINE.test(body)) {
+      pieces.push({ statement, passthrough: statement.sql })
+      continue
+    }
+    const conversion = converter.convert(statement.sql)
+    pieces.push({
+      statement,
+      result: {
+        index: pieces.filter(p => p.result).length,
+        input: statement.sql,
+        output: conversion.output,
+        warnings: conversion.warnings,
+        blocked: conversion.blocked,
+      },
+    })
+  }
+
+  const results = pieces.map(p => p.result).filter((r): r is StatementResult => r !== undefined)
+  if (results.length === 0) return { output: script.trim(), warnings: [], statements: [] }
+
+  const anyTranslated = results.some(r => !r.blocked)
+  // Only annotate a refused statement when it sits among translated ones — a lone refused
+  // query keeps today's behaviour, where the UI shows the "not translated" panel instead.
+  const annotateBlocked = anyTranslated && results.length > 1
+
+  const parts = pieces.map(p => {
+    if (p.passthrough !== undefined) return { statement: p.statement, sql: p.passthrough }
+    const r = p.result!
+    if (r.blocked && annotateBlocked) {
+      return {
+        statement: p.statement,
+        sql: `-- SQLBridge: not translated — ${r.blocked.reason} (needs a manual rewrite)\n${r.output}`,
+      }
+    }
+    return { statement: p.statement, sql: r.output }
+  })
+
+  const everyStatementBlocked = results.every(r => r.blocked)
+  return {
+    output: joinStatements(parts).trim(),
+    // de-duplicated for the summary: a 40-statement script shouldn't list
+    // "Converted NVL to IFNULL" forty times.
+    warnings: [...new Set(results.flatMap(r => r.warnings))],
+    statements: results,
+    blocked: everyStatementBlocked ? results[0].blocked : undefined,
   }
 }
 
@@ -62,4 +128,4 @@ export function getTargetsFor(source: string): Dialect[] {
 }
 
 export { oracleToMysql, mysqlToOracle }
-export type { Converter, ConvertResult, Dialect }
+export type { Converter, ConvertResult, Dialect, StatementConversion, StatementResult } from './types'

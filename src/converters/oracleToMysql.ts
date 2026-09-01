@@ -1,4 +1,4 @@
-import type { Converter, ConvertResult } from './types'
+import type { Converter, StatementConversion } from './types'
 import { applyTypeMap } from './types'
 
 /**
@@ -16,6 +16,8 @@ const UNCERTAIN_PATTERNS: ReadonlyArray<readonly [RegExp, string]> = [
   [/\bPIVOT\b/i, 'PIVOT clause'],
   [/\bUNPIVOT\b/i, 'UNPIVOT clause'],
   [/\bINSTR\s*\([^)]*,[^)]*,[^)]*,[^)]*\)/i, 'INSTR with 4 arguments'],
+  [/\bCREATE(?:\s+OR\s+REPLACE)?\s+(?:PROCEDURE|FUNCTION|TRIGGER|PACKAGE)\b/i, 'PL/SQL stored program'],
+  [/^\s*(?:DECLARE|BEGIN)\b/i, 'PL/SQL anonymous block'],
 ]
 
 const TYPE_MAP: ReadonlyArray<readonly [string, string]> = [
@@ -138,7 +140,7 @@ export const oracleToMysql: Converter = {
   source: 'oracle',
   target: 'mysql',
 
-  convert(sql: string): ConvertResult {
+  convert(sql: string): StatementConversion {
     const warnings: string[] = []
 
     // Confidence gate — bail out before touching anything we can't translate reliably.

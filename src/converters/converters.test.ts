@@ -294,7 +294,7 @@ describe('registry', () => {
       '('.repeat(4000),
       ')'.repeat(4000),
       "'".repeat(999),
-      '  SELECT',
+      '\u0000\u0001\u0007 SELECT',
       'SELECT '.repeat(3000),
       'DECODE('.repeat(200) + 'x' + ')'.repeat(200),
     ]
@@ -312,6 +312,63 @@ describe('registry', () => {
   it('lists reachable targets for a source', () => {
     expect(getTargetsFor('oracle').map(d => d.name)).toEqual(['mysql'])
     expect(getTargetsFor('nope')).toEqual([])
+  })
+})
+
+describe('multi-statement scripts', () => {
+  it('converts every statement and keeps the terminators', () => {
+    const r = convert('SELECT SYSDATE FROM DUAL;\nSELECT NVL(x, 0) FROM t;', 'oracle', 'mysql')
+    expect(r.statements).toHaveLength(2)
+    expect(r.output).toBe('SELECT NOW();\nSELECT IFNULL(x, 0) FROM t;')
+    expect(r.blocked).toBeUndefined()
+  })
+
+  it('flattens warnings across statements', () => {
+    const r = convert('SELECT NVL(a, 0) FROM t;\nSELECT NVL2(b, b, 0) FROM t;', 'oracle', 'mysql')
+    expect(r.warnings.length).toBeGreaterThanOrEqual(1)
+    expect(r.statements[1].warnings.some(w => w.includes('NVL2'))).toBe(true)
+  })
+
+  it('converts the rest of a script and marks the one statement it refuses', () => {
+    const script = [
+      'SELECT NVL(a, 0) FROM t;',
+      'SELECT * FROM emp CONNECT BY PRIOR id = mgr_id;',
+      'SELECT SYSDATE FROM DUAL;',
+    ].join('\n')
+    const r = convert(script, 'oracle', 'mysql')
+
+    expect(r.blocked).toBeUndefined() // not the whole-script panel
+    expect(r.statements[0].output).toBe('SELECT IFNULL(a, 0) FROM t')
+    expect(r.statements[1].blocked?.reason).toContain('CONNECT BY')
+    expect(r.statements[2].output).toBe('SELECT NOW()')
+    expect(r.output).toContain('-- SQLBridge: not translated — CONNECT BY')
+    expect(r.output).toContain('SELECT IFNULL(a, 0) FROM t;')
+    expect(r.output.trimEnd().endsWith('SELECT NOW();')).toBe(true)
+  })
+
+  it('still shows the whole-script blocked state for a single refused query', () => {
+    const r = convert('SELECT * FROM emp CONNECT BY PRIOR id = mgr_id', 'oracle', 'mysql')
+    expect(r.blocked?.reason).toContain('CONNECT BY')
+    expect(r.statements).toHaveLength(1)
+  })
+
+  it('does not split a PL/SQL block, and the gate refuses it', () => {
+    const block = 'BEGIN\n  UPDATE t SET x = 1;\n  DELETE FROM u;\nEND;'
+    const r = convert(block, 'oracle', 'mysql')
+    expect(r.statements).toHaveLength(1)
+    expect(r.blocked?.reason).toContain('PL/SQL')
+  })
+
+  it('passes a DELIMITER directive through untouched', () => {
+    const r = convert('DELIMITER //\nSELECT NOW()//', 'mysql', 'oracle')
+    expect(r.output).toContain('DELIMITER //')
+    expect(r.output).toContain('SYSTIMESTAMP')
+  })
+
+  it('drops empty statements from stray semicolons', () => {
+    const r = convert('SELECT NVL(a, 0) FROM t;;;', 'oracle', 'mysql')
+    expect(r.statements).toHaveLength(1)
+    expect(r.output).toBe('SELECT IFNULL(a, 0) FROM t;')
   })
 })
 

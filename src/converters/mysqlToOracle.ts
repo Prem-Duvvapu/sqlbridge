@@ -1,5 +1,14 @@
-import type { Converter, ConvertResult } from './types'
+import type { Converter, StatementConversion } from './types'
 import { applyTypeMap } from './types'
+
+/**
+ * Constructs we won't translate to Oracle — procedural code needs a manual rewrite, not
+ * a function-name swap that leaves the scaffolding MySQL-shaped.
+ */
+const UNCERTAIN_PATTERNS: ReadonlyArray<readonly [RegExp, string]> = [
+  [/\bCREATE(?:\s+(?:DEFINER\s*=\s*\S+))?\s+(?:PROCEDURE|FUNCTION|TRIGGER|EVENT)\b/i, 'MySQL stored program'],
+  [/^\s*DELIMITER\b/i, 'DELIMITER directive'],
+]
 
 const TYPE_MAP: ReadonlyArray<readonly [string, string]> = [
   ['LONGTEXT', 'CLOB'],
@@ -69,8 +78,16 @@ export const mysqlToOracle: Converter = {
   source: 'mysql',
   target: 'oracle',
 
-  convert(sql: string): ConvertResult {
+  convert(sql: string): StatementConversion {
     const warnings: string[] = []
+
+    for (const [pattern, reason] of UNCERTAIN_PATTERNS) {
+      if (pattern.test(sql)) {
+        warnings.push(`${reason} detected — automatic conversion may be incorrect`)
+        return { output: sql, warnings, blocked: { reason } }
+      }
+    }
+
     // Drop every trailing statement terminator and surrounding whitespace — one `;`, a
     // stray `;;`, or `; ` all reduce to the same clean statement. A leftover terminator
     // gets stranded mid-query once the LIMIT pass rewrites the clause in front of it.

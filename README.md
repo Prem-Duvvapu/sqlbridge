@@ -13,9 +13,12 @@ entirely in the browser — paste a query, pick a direction, read the translatio
 - **Dialect translation** — regex-based rewrites for pagination, null handling, date
   functions, string operators, identifier quoting, data types, and more (full table
   below).
+- **Multi-statement scripts** — paste a whole `.sql` file; each statement is translated
+  on its own and the file is re-assembled with its original spacing and terminators.
 - **Confidence gate** — constructs that can't be translated safely (`CONNECT BY`,
-  sequences, `MERGE`, `PIVOT`, …) are flagged for a manual rewrite rather than converted
-  into something subtly wrong.
+  sequences, `MERGE`, `PIVOT`, stored procedures, …) are flagged for a manual rewrite
+  rather than converted into something subtly wrong. In a script, the flagged statement
+  gets a `-- SQLBridge:` note and the rest still converts.
 - **Diff view** — a Split/Diff toggle; Diff shows a line-by-line comparison with only the
   tokens the translation actually rewrote highlighted.
 - **File in / out** — drag a `.sql` file onto the page (or use **Open file**); save the
@@ -74,10 +77,11 @@ static host.
 ```
 src/
 ├── converters/
-│   ├── types.ts          Converter interface, shared regex helpers
-│   ├── oracleToMysql.ts   one Converter per direction
+│   ├── types.ts          Converter / StatementConversion / ConvertResult
+│   ├── oracleToMysql.ts   one Converter per direction (single-statement)
 │   ├── mysqlToOracle.ts
-│   └── index.ts           registry: routes source→target, lists dialects
+│   └── index.ts           registry + convertScript (split → convert → re-join)
+├── sql/split.ts          statement splitter (strings, comments, PL/SQL blocks)
 ├── format.ts             sql-formatter wrapper (lazy-loaded, dialect-aware)
 ├── highlight.ts          display-only SQL tokenizer
 ├── diff.ts               line + token diff for the Diff view
