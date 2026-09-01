@@ -9,6 +9,7 @@ import { DiffView } from './DiffView'
 import { DropOverlay, useFileImport } from './FileDrop'
 import { downloadText, suggestedFilename } from './fileTransfer'
 import { buildShareUrl, clearShareToken, decodeShare, encodeShare, readShareToken } from './share'
+import { splitStatements } from './sql/split'
 import './App.css'
 
 interface Sample {
@@ -139,6 +140,10 @@ function App() {
 
   const targets = useMemo(() => getTargetsFor(source), [source])
   const canConvert = input.trim().length > 0 && source !== target
+  const statementCount = useMemo(
+    () => (input.trim() ? splitStatements(input).filter(s => s.sql.trim() !== '').length : 0),
+    [input],
+  )
   const unsupported = source !== target && targets.every(d => d.name !== target)
 
   const canDiff = output !== '' && blockedReason === null
@@ -413,7 +418,9 @@ function App() {
           <div className="panel-head">
             <h2 className="panel-title">{labelFor(source)}</h2>
             <div className="panel-head-actions">
-              <span className="panel-meta">{input.length} chars</span>
+              <span className="panel-meta">
+                {statementCount > 1 && `${statementCount} statements · `}{input.length} chars
+              </span>
               <button
                 type="button"
                 className="ghost-button ghost-button-sm"

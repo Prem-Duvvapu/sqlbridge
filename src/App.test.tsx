@@ -60,6 +60,29 @@ describe('App — conversion flow', () => {
     const notes = screen.getByRole('region', { name: /conversion notes/i })
     expect(within(notes).getByText(/ROWNUM/i)).toBeInTheDocument()
   })
+
+  it('converts a multi-statement script and shows the statement count', async () => {
+    render(<App />)
+    const input = editor(/oracle sql input/i)
+    await userEvent.clear(input)
+    await userEvent.type(input, 'SELECT SYSDATE FROM DUAL;\nSELECT NVL(x, 0) FROM t;')
+    expect(screen.getByText(/2 statements/)).toBeInTheDocument()
+
+    await userEvent.click(screen.getByRole('button', { name: /convert/i }))
+    const out = screen.getByLabelText(/mysql sql output/i).textContent ?? ''
+    expect(out).toContain('NOW()')
+    expect(out).toContain('IFNULL(x, 0)')
+  })
+
+  it('refuses a stored procedure with a manual-rewrite note', async () => {
+    render(<App />)
+    const input = editor(/oracle sql input/i)
+    await userEvent.clear(input)
+    await userEvent.type(input, 'CREATE PROCEDURE p AS BEGIN NULL; END;')
+    await userEvent.click(screen.getByRole('button', { name: /convert/i }))
+    const panel = screen.getByText('Not translated').closest('.blocked') as HTMLElement
+    expect(within(panel).getByText(/PL\/SQL stored program/i)).toBeInTheDocument()
+  })
 })
 
 describe('App — controls', () => {

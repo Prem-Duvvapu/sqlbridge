@@ -3,8 +3,9 @@
 Approved plan for the next round of work. Tick items off as each phase lands, the way
 `MIGRATION.md` tracked the Spring Boot → React migration.
 
-**Status:** in progress. ✅ 1 (drag-drop + download), ✅ 2 (shareable URL). Next: the
-foundational splitter (A) + rule-catalogue refactor (B).
+**Status:** in progress. ✅ 1 (drag-drop), ✅ 2 (shareable URL), ✅ A + core of 3
+(statement splitter + multi-statement conversion). Next: B (Rewriter + rule catalogue),
+then 3's UI polish (notes grouped per statement), 4–6.
 
 ## Context
 
@@ -35,7 +36,23 @@ PostgreSQL is explicitly **out of scope** for this round.
 Four of the six features sit on top of these. Doing them first avoids building the same
 thing twice.
 
-### A. Statement splitter → multi-statement conversion
+### A. Statement splitter → multi-statement conversion — ✅ done
+
+Shipped: `src/sql/split.ts` (`splitStatements` / `joinStatements`), the
+`StatementConversion` / `StatementResult` / `ConvertResult` split in
+`src/converters/types.ts`, and `convertScript()` in `src/converters/index.ts` (split →
+convert each → re-join with original whitespace + terminators; refused statements get a
+`-- SQLBridge: not translated` note when the rest converted; a lone refused query keeps
+the whole-script "blocked" panel). Confidence gate extended to `CREATE
+PROCEDURE|FUNCTION|TRIGGER|PACKAGE` and anonymous `DECLARE`/`BEGIN` blocks (both
+directions). `App.tsx` shows a statement count in the source panel meta. 25 splitter
+tests + 7 multi-statement conversion tests + `source-hygiene.test.ts`.
+
+Still to do under **3**: notes grouped per statement (currently flattened + de-duped),
+inline per-statement markers in the diff view.
+
+---
+Original design notes:
 
 **New:** `src/sql/split.ts`
 
