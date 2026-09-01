@@ -38,7 +38,7 @@ export function SqlView({ value, placeholder, ariaLabel }: {
   ariaLabel: string
 }) {
   if (!value) {
-    return <div className="editor editor-empty">{placeholder}</div>
+    return <div className="editor editor-empty" aria-label={ariaLabel}>{placeholder}</div>
   }
   if (value.length > MAX_HIGHLIGHT_CHARS) {
     return <pre className="editor editor-view" tabIndex={0} aria-label={ariaLabel}>{value}</pre>

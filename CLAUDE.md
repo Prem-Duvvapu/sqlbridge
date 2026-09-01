@@ -27,6 +27,16 @@ npx vitest run -t "rewrites NVL to IFNULL"
 There is no linter. `npm run build` is the type-check gate; `tsconfig.app.json` has
 `noUnusedLocals` / `noUnusedParameters` on, so prefix intentionally-unused params with `_`.
 
+## Working here
+
+- `MIGRATION.md` — the Spring Boot → React port and the bugs found during it.
+- `ROADMAP.md` — approved plan for the next features; tick items as they land.
+- `RCA.md` — **root-cause log. Add an entry for every real defect**: symptom, root
+  cause, fix, why the tests missed it, what catches it now.
+- Tests: pure logic runs in Node; DOM suites start with `// @vitest-environment jsdom`.
+  A new component or hook ships with its test in the same change. CI blocks merge to
+  `main` on a red suite.
+
 ## What this is
 
 A fully client-side SQL dialect translator (Oracle ↔ MySQL). React 19 + Vite 6 + TS,

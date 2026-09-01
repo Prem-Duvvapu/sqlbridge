@@ -617,6 +617,8 @@ body {
   gap: 12px;
 }
 
+.panel-toolbar-actions { display: flex; gap: 8px; }
+
 .view-switch {
   display: flex;
   gap: 2px;

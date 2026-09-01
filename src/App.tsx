@@ -166,6 +166,16 @@ function App() {
     }
   }
 
+  function clearWorkspace() {
+    setInput('')
+    setOutput('')
+    setWarnings([])
+    setBlockedReason(null)
+    setNotice(null)
+    setCopied(false)
+    setView('split')
+  }
+
   function loadSample(sample: Sample) {
     const result = convert(sample.sql, sample.source, sample.target)
     setSource(sample.source)
@@ -281,15 +291,26 @@ function App() {
       )}
 
       <div className="panel-toolbar">
-        <button
-          type="button"
-          className="ghost-button ghost-button-sm"
-          onClick={formatSql}
-          disabled={!input.trim() && !output}
-          title="Reindent both panels across multiple lines"
-        >
-          Format
-        </button>
+        <div className="panel-toolbar-actions">
+          <button
+            type="button"
+            className="ghost-button ghost-button-sm"
+            onClick={formatSql}
+            disabled={!input.trim() && !output}
+            title="Reindent both panels across multiple lines"
+          >
+            Format
+          </button>
+          <button
+            type="button"
+            className="ghost-button ghost-button-sm"
+            onClick={clearWorkspace}
+            disabled={!input && !output}
+            title="Empty both panels"
+          >
+            Clear
+          </button>
+        </div>
         <div className="view-switch" role="group" aria-label="View">
           <button
             type="button"
