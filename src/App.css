@@ -794,6 +794,7 @@ body {
 .colophon-links { display: flex; gap: 16px; }
 .colophon a { color: var(--ink-soft); text-decoration: none; border-bottom: 1px solid var(--rule-strong); }
 .colophon a:hover { color: var(--ink); border-color: currentColor; }
+.colophon-link-disabled { color: var(--ink-faint); opacity: 0.5; cursor: not-allowed; }
 
 /* ── responsive ───────────────────────────────────────────────────────── */
 

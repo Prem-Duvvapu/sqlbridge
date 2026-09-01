@@ -36,6 +36,13 @@ const SAMPLES: readonly Sample[] = [
   },
 ]
 
+// Feedback links are kept but switched off for now — flip this to true to re-enable.
+const FEEDBACK_LINKS_ENABLED = false
+const FEEDBACK_LINKS = [
+  { label: 'Report a bug', href: 'https://github.com/Prem-Duvvapu/sqlbridge/issues/new?template=bug_report.md' },
+  { label: 'Give feedback', href: 'https://github.com/Prem-Duvvapu/sqlbridge/issues/new?template=feedback.md' },
+]
+
 /**
  * First visit opens on a worked example rather than two empty boxes — the fastest way to
  * show what the tool does is to show it having already done it.
@@ -381,10 +388,17 @@ function App() {
           Regex-based translation. Review every result before running it against a database.
         </span>
         <span className="colophon-links">
-          <a href="https://github.com/Prem-Duvvapu/sqlbridge/issues/new?template=bug_report.md"
-            target="_blank" rel="noopener noreferrer">Report a bug</a>
-          <a href="https://github.com/Prem-Duvvapu/sqlbridge/issues/new?template=feedback.md"
-            target="_blank" rel="noopener noreferrer">Give feedback</a>
+          {FEEDBACK_LINKS.map(link => (
+            FEEDBACK_LINKS_ENABLED ? (
+              <a key={link.label} href={link.href} target="_blank" rel="noopener noreferrer">
+                {link.label}
+              </a>
+            ) : (
+              <span key={link.label} className="colophon-link-disabled" aria-disabled="true">
+                {link.label}
+              </span>
+            )
+          ))}
         </span>
       </footer>
     </div>
