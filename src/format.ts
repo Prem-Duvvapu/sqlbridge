@@ -41,6 +41,7 @@ export async function format(sql: string, dialect: string): Promise<FormatResult
       }),
     }
   } catch (e) {
-    return { sql, error: e instanceof Error ? e.message : 'Could not parse this SQL' }
+    const detail = e instanceof Error ? e.message.split('\n')[0] : 'unrecognised syntax'
+    return { sql, error: `Couldn't format this SQL, so it's unchanged — ${detail}` }
   }
 }

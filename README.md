@@ -13,11 +13,15 @@ entirely in the browser — paste a query, pick a direction, read the translatio
 - **Confidence gate** — constructs that can't be translated safely (`CONNECT BY`,
   sequences, `MERGE`, `PIVOT`, …) are flagged for a manual rewrite rather than converted
   into something subtly wrong.
+- **Diff view** — a Split/Diff toggle; Diff shows a line-by-line comparison with only the
+  tokens the translation actually rewrote highlighted.
 - **Formatter** — dialect-aware reindentation onto multiple lines, on either panel.
 - **Syntax highlighting** — keywords, logical connectors, table names, functions, and
   literals each in their own colour.
 - **Per-tab workspaces** — each browser tab keeps its own query and result; reopening the
   site restores your last session.
+
+Light theme by default; a toggle switches to dark and remembers the choice.
 
 Everything happens client-side. There is no server, no account, and nothing you paste
 leaves your machine.
@@ -27,7 +31,7 @@ leaves your machine.
 ```bash
 npm install
 npm run dev      # http://localhost:50173
-npm test         # Vitest — converter, formatter and highlighter suites
+npm test         # Vitest — converter, formatter, highlighter and diff suites
 npm run build    # type-check + production build to dist/
 npm run preview  # serve the production build on http://localhost:50174
 ```
@@ -62,21 +66,28 @@ static host.
 ```
 src/
 ├── converters/
-│   ├── types.ts          SqlConverter interface, shared regex helpers
+│   ├── types.ts          Converter interface, shared regex helpers
 │   ├── oracleToMysql.ts   one Converter per direction
 │   ├── mysqlToOracle.ts
 │   └── index.ts           registry: routes source→target, lists dialects
 ├── format.ts             sql-formatter wrapper (lazy-loaded, dialect-aware)
 ├── highlight.ts          display-only SQL tokenizer
+├── diff.ts               line + token diff for the Diff view
 ├── persistence.ts        session/local storage tiers
 ├── SqlEditor.tsx         highlighted input + read-only view
+├── DiffView.tsx          unified diff panel
+├── ErrorBoundary.tsx     last-resort recovery screen
 └── App.tsx               the page
 ```
 
 A converter is `{ source, target, convert(sql) -> { output, warnings, blocked? } }`. The
 registry keys converters by `"source->target"` and returns an error result — never
-throws — for an unknown pair. Converters are pure: no module-level mutable state, so any
-number of conversions can run without interfering.
+throws, even if a converter itself does — for an unknown pair. Converters are pure: no
+module-level mutable state, so any number of conversions can run without interfering.
+
+`convert()`, `tokenize()` and `diffSql()` are all wrapped so they never throw (they run
+on every render); anything else unexpected is caught by `ErrorBoundary`, which shows a
+recovery screen with your SQL still saved.
 
 Each `convert()` runs an **ordered** sequence of string rewrites. Order is load-bearing —
 `TRUNC(SYSDATE)` is handled before the bare `SYSDATE` rewrite, pagination before

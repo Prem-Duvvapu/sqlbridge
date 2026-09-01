@@ -43,10 +43,9 @@
   --transition: 140ms cubic-bezier(0.4, 0, 0.2, 1);
 }
 
-/* Dark palette applies in two situations: an explicit choice (below), and the OS
-   preference before the app has stamped data-theme (further below). The selector pair is
-   duplicated deliberately — a token defined only inside a media query never applies to a
-   document that hasn't been stamped yet, which is the classic flash-of-wrong-theme bug. */
+/* Light is the default and the un-stamped state. Dark is opt-in only — it applies when
+   the theme toggle has stamped data-theme="dark"; the OS `prefers-color-scheme` is
+   deliberately not consulted, because the design is tuned light-first. */
 :root[data-theme='dark'] {
   --paper: #0d131a;
   --surface: #141c25;
@@ -72,41 +71,10 @@
   --shadow: 0 1px 2px rgb(0 0 0 / 40%), 0 8px 24px -12px rgb(0 0 0 / 60%);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root:not([data-theme='light']) {
-    --paper: #0d131a;
-    --surface: #141c25;
-    --surface-sunk: #10171f;
-    --ink: #e3eaf2;
-    --ink-soft: #93a3b5;
-    --ink-faint: #64748b;
-    --rule: #223040;
-    --rule-strong: #2f4055;
-
-    --dialect-oracle: #f0705c;
-    --dialect-mysql: #35b6d4;
-    --dialect-postgresql: #8b9ae8;
-    --dialect-sqlserver: #b389e0;
-    --dialect-default: #93a3b5;
-
-    --note: #e8b44f;
-    --note-ground: #241d0e;
-    --note-rule: #4a3a17;
-
-    --focus: #5b9bff;
-
-    --shadow: 0 1px 2px rgb(0 0 0 / 40%), 0 8px 24px -12px rgb(0 0 0 / 60%);
-  }
-}
-
 * { box-sizing: border-box; }
 
 html { color-scheme: light; }
 :root[data-theme='dark'] { color-scheme: dark; }
-
-@media (prefers-color-scheme: dark) {
-  :root:not([data-theme='light']) { color-scheme: dark; }
-}
 
 body {
   margin: 0;
@@ -123,6 +91,75 @@ body {
   outline-offset: 2px;
   border-radius: var(--radius);
 }
+
+/* ── crash screen (ErrorBoundary) ─────────────────────────────────────── */
+
+.crash {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  background: var(--paper);
+}
+
+.crash-card {
+  max-width: 30rem;
+  background: var(--surface);
+  border: 1px solid var(--rule);
+  border-top: 3px solid var(--dialect-oracle);
+  border-radius: var(--radius-lg);
+  padding: 28px;
+  box-shadow: var(--shadow);
+}
+
+.crash-title {
+  margin: 0 0 10px;
+  font-family: var(--font-mono);
+  font-size: 17px;
+  font-weight: 700;
+  color: var(--ink);
+}
+
+.crash-body {
+  margin: 0 0 20px;
+  color: var(--ink-soft);
+  font-size: 14px;
+}
+
+.crash-actions { display: flex; gap: 10px; margin-bottom: 18px; }
+
+.crash-button {
+  font-family: var(--font-mono);
+  font-size: 13px;
+  font-weight: 500;
+  padding: 8px 16px;
+  border-radius: var(--radius);
+  border: 1px solid var(--rule-strong);
+  background: var(--surface);
+  color: var(--ink-soft);
+  cursor: pointer;
+}
+
+.crash-button-primary { background: var(--ink); border-color: var(--ink); color: var(--surface); }
+
+.crash-detail {
+  margin: 0 0 14px;
+  padding: 12px;
+  background: var(--surface-sunk);
+  border: 1px solid var(--rule);
+  border-radius: var(--radius);
+  font-family: var(--font-mono);
+  font-size: 12px;
+  color: var(--ink-soft);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  max-height: 8rem;
+  overflow: auto;
+}
+
+.crash-foot { margin: 0; font-size: 12.5px; color: var(--ink-faint); }
+.crash-foot a { color: var(--ink-soft); }
 
 /* Dialect hue resolution. The app element carries the current pair, and each panel
    claims the hue for the end it represents. */
@@ -485,26 +522,6 @@ body {
   --tok-number: #ff7b72;
   --tok-comment: #8b949e;
   --tok-operator: #9aa7b4;
-}
-
-@media (prefers-color-scheme: dark) {
-  :root:not([data-theme='light']) {
-    --tok-keyword: #79c0ff;
-    --tok-clause: #d2a8ff;
-    --tok-table: #ffa657;
-    --tok-function: #56d4c4;
-    --tok-string: #7ee787;
-    --tok-number: #ff7b72;
-    --tok-comment: #8b949e;
-    --tok-operator: #9aa7b4;
-
-    --diff-del-bg: #2a1416;
-    --diff-del-strong: #55212a;
-    --diff-del-ink: #ff9c8f;
-    --diff-add-bg: #10231a;
-    --diff-add-strong: #1e4a32;
-    --diff-add-ink: #74dd9e;
-  }
 }
 
 .tok-keyword { color: var(--tok-keyword); font-weight: 700; }

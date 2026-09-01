@@ -44,14 +44,15 @@ have been passing. Fixed rather than reproduced:
 | Oracle→MySQL never stripped a trailing `;` | `SELECT … ; LIMIT 5` |
 | `typeMapOracle()` had no `NUMBER` entry | `NUMBER(10)` → `DECIMAL(10)` never happened |
 
-### 3. Test suite — 91 passing
-- `src/converters/converters.test.ts` (63) — the 40 original cases, plus confidence-gate
-  coverage, registry routing, and a `converters are pure` group that guards the
-  concurrency requirement (shared singletons must not carry state between calls).
+### 3. Test suite — 93 passing
+- `src/converters/converters.test.ts` (64) — the 40 original cases, plus confidence-gate
+  coverage, registry routing, a `converters are pure` group that guards the concurrency
+  requirement (shared singletons must not carry state between calls), and a
+  never-throws-on-junk guard.
 - `src/highlight.test.ts` (12) — tokenizer classification and the "never loses a
   character" invariant.
-- `src/diff.test.ts` (10) — line/token diff, and the "pieces reconstruct both sides"
-  invariant.
+- `src/diff.test.ts` (11) — line/token diff, "pieces reconstruct both sides", and a
+  never-throws guard.
 - `src/format.test.ts` (6) — formatting, dialect awareness, graceful failure.
 
 ### 4. UI runs locally
@@ -72,9 +73,9 @@ Every access is `try/catch`-wrapped (Safari private mode throws on access). Them
 Mono-led chrome (JetBrains Mono + IBM Plex Sans). Colour encodes dialect identity — each
 dialect owns a hue, panels take the hue for the end they represent, and they trade places
 on swap. Signature element: the **bridge rail** between the selectors, tinted source-hue →
-target-hue. Full light/dark palettes including the un-stamped `prefers-color-scheme`
-state. Confidence-gate refusals are a distinct panel state, not an error string in the
-output box.
+target-hue. Light is the default theme; dark is opt-in via the toggle only (the OS
+`prefers-color-scheme` is not consulted). Confidence-gate refusals are a distinct panel
+state, not an error string in the output box.
 
 ### 7. SQL formatter — `src/format.ts`
 Wraps `sql-formatter`, dialect-aware (Oracle → PL/SQL grammar, MySQL → MySQL grammar).
@@ -95,21 +96,29 @@ Display-only lexer. Token roles: `keyword`, `clause` (`AND`/`OR`/`IN`/`LIKE`/`IS
 `<pre>` under a transparent `<textarea>`, metrics matched via a shared `.editor` class);
 the output panel is a plain coloured `<pre>`.
 
-### 11. Docs
-`README.md` and `CLAUDE.md` rewritten for the single-app architecture. `.gitignore`
-updated for the flattened layout. `ROADMAP.md` added for the next round of features.
+### 11. Error handling — `src/ErrorBoundary.tsx`
+`convert()`, `tokenize()` and `diffSql()` are wrapped so they never throw — they run
+reactively and a throw would blank the page; each degrades to a safe result instead.
+`ErrorBoundary` wraps `<App/>` and shows a readable recovery screen (with the saved SQL
+intact) for anything unforeseen. Recoverable failures — a conversion that errors, a
+formatter that won't load, a blocked clipboard — surface as an inline notice.
+
+### 12. Docs
+`README.md` and `CLAUDE.md` rewritten for the single-app architecture. `.gitignore` and
+`.gitattributes` for the flattened layout and LF endings. `ROADMAP.md` holds the approved
+plan for the next round of features.
 
 ---
 
 ## Verification
 
 - [x] `npm install` resolves at repo root
-- [x] `npm test` — 91 green
-- [x] `npm run build` — `tsc -b` clean, `dist/` emitted (221 kB main + 294 kB lazy formatter chunk)
+- [x] `npm test` — 93 green
+- [x] `npm run build` — `tsc -b` clean, `dist/` emitted (224 kB main + 294 kB lazy formatter chunk)
 - [x] Dev server serves on 50173; production preview on 50174
 - [x] Production bundle contains the converter and makes no network calls
 - [ ] Two-tab isolation + browser-restart restore — verify by hand in a browser
-- [ ] Deploy: push to GitHub, import at vercel.com/new (zero config)
+- [x] Deployed: `main` merged; import at vercel.com/new (zero config)
 
 ## Deploy
 

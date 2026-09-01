@@ -272,6 +272,21 @@ describe('registry', () => {
     expect(r.warnings).toHaveLength(1)
   })
 
+  it('never throws on pathological input', () => {
+    const junk = [
+      '('.repeat(4000),
+      ')'.repeat(4000),
+      "'".repeat(999),
+      '  SELECT',
+      'SELECT '.repeat(3000),
+      'DECODE('.repeat(200) + 'x' + ')'.repeat(200),
+    ]
+    for (const sql of junk) {
+      expect(() => convert(sql, 'oracle', 'mysql')).not.toThrow()
+      expect(() => convert(sql, 'mysql', 'oracle')).not.toThrow()
+    }
+  })
+
   it('lists each source dialect once', () => {
     expect(getSources().map(d => d.name)).toEqual(['oracle', 'mysql'])
     expect(getSources().map(d => d.label)).toEqual(['Oracle', 'MySQL'])

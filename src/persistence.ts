@@ -81,15 +81,13 @@ export function saveWorkspace(workspace: Workspace): void {
   write(() => localStorage, LAST_KEY, payload)
 }
 
-/** Theme is a device-wide preference, not per-tab. */
+/**
+ * Theme is a device-wide preference, not per-tab. Light is the default; dark applies only
+ * when the visitor has picked it here before. (The OS `prefers-color-scheme` is
+ * deliberately not consulted — the design is tuned light-first.)
+ */
 export function loadTheme(): 'light' | 'dark' {
-  const stored = read(() => localStorage, THEME_KEY)
-  if (stored === 'light' || stored === 'dark') return stored
-  try {
-    return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'
-  } catch {
-    return 'light'
-  }
+  return read(() => localStorage, THEME_KEY) === 'dark' ? 'dark' : 'light'
 }
 
 export function saveTheme(theme: 'light' | 'dark'): void {

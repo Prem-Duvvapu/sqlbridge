@@ -106,23 +106,37 @@ function App() {
 
   function copyOutput() {
     if (!output) return
-    navigator.clipboard.writeText(output).then(() => {
-      setCopied(true)
-      window.clearTimeout(copyTimer.current)
-      copyTimer.current = window.setTimeout(() => setCopied(false), 1800)
-    }, () => undefined)
+    // clipboard is undefined in insecure contexts and can reject on permission — either
+    // way, tell the user rather than doing nothing or throwing from the handler.
+    Promise.resolve()
+      .then(() => navigator.clipboard.writeText(output))
+      .then(() => {
+        setCopied(true)
+        setFormatError(null)
+        window.clearTimeout(copyTimer.current)
+        copyTimer.current = window.setTimeout(() => setCopied(false), 1800)
+      })
+      .catch(() => setFormatError('Could not copy to the clipboard — select the text and copy it manually.'))
   }
 
   async function formatInput() {
-    const result = await format(input, source)
-    setInput(result.sql)
-    setFormatError(result.error ?? null)
+    try {
+      const result = await format(input, source)
+      setInput(result.sql)
+      setFormatError(result.error ?? null)
+    } catch {
+      setFormatError('The formatter could not load. Check your connection and try again.')
+    }
   }
 
   async function formatOutput() {
-    const result = await format(output, target)
-    setOutput(result.sql)
-    setFormatError(result.error ?? null)
+    try {
+      const result = await format(output, target)
+      setOutput(result.sql)
+      setFormatError(result.error ?? null)
+    } catch {
+      setFormatError('The formatter could not load. Check your connection and try again.')
+    }
   }
 
   function loadSample(sample: Sample) {
@@ -229,9 +243,7 @@ function App() {
         </p>
       )}
       {formatError && (
-        <p className="notice" role="status">
-          Left the SQL as it was — the formatter couldn't parse it. {formatError}
-        </p>
+        <p className="notice" role="status">{formatError}</p>
       )}
 
       <div className="view-switch" role="group" aria-label="View">

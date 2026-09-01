@@ -79,6 +79,12 @@ the raw SQL. Conventions that will bite you if ignored:
   transparent `<textarea>`). Both layers share the `.editor` class so their text metrics
   are identical; changing padding/font/line-height on one without the other makes the
   highlight drift out of alignment with the caret.
+- `src/diff.ts` + `src/DiffView.tsx` — the Split/Diff toggle. `diffSql()` does an
+  LCS line diff, then a token diff (via `tokenize`) within each changed line pair, so
+  only rewritten spans are tinted. Tested invariant: the pieces reconstruct both sides
+  exactly. Never throws — degrades to a plain two-block diff.
+- `src/ErrorBoundary.tsx` — wraps `<App/>` in `main.tsx`; recovery screen for anything
+  the inline handlers didn't catch.
 - `src/persistence.ts` — two storage tiers: `sessionStorage` for per-tab isolation,
   `localStorage` (`sqlbridge:last`) to reseed a fresh tab after a browser restart. Every
   access is `try/catch`-wrapped (Safari private mode throws). `loadWorkspace()` returns
@@ -89,9 +95,13 @@ the raw SQL. Conventions that will bite you if ignored:
 - Dev port **50173**, preview **50174** (`vite.config.ts`) — in the 50000s to stay clear
   of the ports other local dev servers grab. Override with `SQLBRIDGE_PORT` /
   `SQLBRIDGE_PREVIEW_PORT` (env or `.env.local`).
-- Theme tokens are defined three times in `src/App.css` (bare `:root`,
-  `@media (prefers-color-scheme: dark)` guarded by `:not([data-theme="light"])`, and
-  `:root[data-theme="dark"]`) so the un-stamped "system" state resolves correctly. A
-  token defined only inside the media query causes a flash of the wrong theme.
+- Theme: **light is the default and the only un-stamped state.** Dark is opt-in — it
+  applies only when the toggle stamps `data-theme="dark"`. The OS `prefers-color-scheme`
+  is deliberately not consulted (`loadTheme()` in `src/persistence.ts`, and there is no
+  dark `@media` block in `src/App.css`).
+- Error handling: `convert()` (`src/converters/index.ts`), `tokenize()`
+  (`src/highlight.ts`) and `diffSql()` (`src/diff.ts`) are wrapped so they never throw —
+  they run reactively and a throw would blank the page. `src/ErrorBoundary.tsx` wraps
+  `<App/>` for anything else. Recoverable failures surface as an inline `.notice`.
 - The build emits a "chunk > 500 kB" warning for the lazy `sql-formatter` chunk — that's
   expected, it's not on the critical path.

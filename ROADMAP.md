@@ -259,7 +259,7 @@ test by hand. 3 and 4 are the heavy lifts; 5–7 are comparatively thin once the
 - `npm test` — all existing 91 stay green; new suites for `split`, `rewriter`, `share`,
   `roundTrip`, and per-rule DDL cases. Target ~160 tests.
 - `npm run build` — `tsc -b` clean; watch that the main chunk stays near its current
-  221 kB (no accidental dependency).
+  224 kB (no accidental dependency).
 - `npm run dev` (port 50173) and by hand:
   - drop a multi-statement `.sql` file with a `CONNECT BY` in the middle — every other
     statement converts, that one is marked
