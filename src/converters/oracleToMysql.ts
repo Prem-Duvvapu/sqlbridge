@@ -149,8 +149,10 @@ export const oracleToMysql: Converter = {
       }
     }
 
-    let s = sql.replace(/\s+$/, '')
-    if (s.endsWith(';')) s = s.slice(0, -1).replace(/\s+$/, '')
+    // Drop every trailing statement terminator and surrounding whitespace — one `;`, a
+    // stray `;;`, or `; ` all reduce to the same clean statement. A leftover terminator
+    // gets stranded mid-query once a later pass rewrites the clause in front of it.
+    let s = sql.replace(/[;\s]+$/, '')
 
     s = s.replace(/\bFROM\s+DUAL\b/gi, '').trim()
 

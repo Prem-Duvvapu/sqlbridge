@@ -103,5 +103,12 @@ the raw SQL. Conventions that will bite you if ignored:
   (`src/highlight.ts`) and `diffSql()` (`src/diff.ts`) are wrapped so they never throw —
   they run reactively and a throw would blank the page. `src/ErrorBoundary.tsx` wraps
   `<App/>` for anything else. Recoverable failures surface as an inline `.notice`.
+- Large-input guards (the textarea takes any pasted text): above 20 000 chars
+  `SqlEditor` drops the highlight layer (plain textarea only); above 3 000 lines or
+  400 000 chars `diffSql` returns a plain block diff instead of the O(n·m) LCS.
+  Conversion and formatting are never size-gated.
+- Converters strip **all** trailing `;`/whitespace (`/[;\s]+$/`), not just one — a
+  leftover terminator gets stranded mid-statement once a later pass rewrites the clause
+  in front of it.
 - The build emits a "chunk > 500 kB" warning for the lazy `sql-formatter` chunk — that's
   expected, it's not on the critical path.

@@ -114,6 +114,15 @@ describe('Oracle → MySQL', () => {
     expect(o2m('SELECT MONTHS_BETWEEN(d1, d2) FROM t').output)
       .toBe('SELECT TIMESTAMPDIFF(MONTH, d2, d1) FROM t')
   })
+
+  it('strips a trailing semicolon, including a stray doubled one', () => {
+    expect(o2m('SELECT * FROM emp WHERE ROWNUM <= 10;').output)
+      .toBe('SELECT * FROM emp LIMIT 10')
+    expect(o2m('SELECT * FROM emp WHERE ROWNUM <= 10;;').output)
+      .toBe('SELECT * FROM emp LIMIT 10')
+    expect(o2m('SELECT * FROM emp WHERE ROWNUM <= 10 ; ').output)
+      .toBe('SELECT * FROM emp LIMIT 10')
+  })
 })
 
 describe('Oracle → MySQL confidence gate', () => {
@@ -154,6 +163,14 @@ describe('MySQL → Oracle', () => {
     const out = m2o('SELECT * FROM app_user LIMIT 510;').output.replace(/\s+$/, '')
     expect(out.endsWith('FETCH FIRST 510 ROWS ONLY')).toBe(true)
     expect(out).not.toContain(';')
+  })
+
+  it('does not strand a doubled semicolon mid-statement', () => {
+    // Regression: `;;` left one `;` behind, which the LIMIT rewrite then stranded on its
+    // own line between the FROM clause and FETCH FIRST.
+    const out = m2o('SELECT *\nFROM job_execution\nLIMIT 10;;').output
+    expect(out).not.toContain(';')
+    expect(out.replace(/\s+/g, ' ')).toBe('SELECT * FROM job_execution FETCH FIRST 10 ROWS ONLY')
   })
 
   it('rewrites IFNULL to NVL', () => {
