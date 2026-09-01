@@ -64,6 +64,17 @@ until the Java converters were ported to TypeScript and moved into the browser (
 - **Adding a dialect pair = one new `Converter` object + one line in the `CONVERTERS`
   array in `index.ts`.** Dropdowns, formatter language map, and routing follow.
 
+### Rule catalogue (`src/converters/rules.ts`)
+
+- `RULES` — one `Rule` (`id`, `title`, `detail`, `severity`, `roundTripLossy?`) per
+  rewrite and per gate refusal. The converters still push plain warning strings;
+  `ruleForWarning()` / `ruleForBlockedReason()` map them back to a `Rule`, and
+  `convertScript()` builds `ConvertResult.notes` (`{ rule, message, statement }`).
+- **The converter bodies do not reference rules** — keep it that way. To add a rewrite:
+  do the `s.replace` + `warnings.push('Converted X to Y')` as before, then add a `RULES`
+  entry and a `['Converted X', RULES.xToY]` line in `MESSAGE_TO_RULE`. `rules.test.ts`'s
+  "covers every warning" test fails if you forget the mapping.
+
 ### Statement splitter (`src/sql/split.ts`)
 
 - `splitStatements(script)` is a lexer, not a parser. Tracks strings (`'` with `''`),

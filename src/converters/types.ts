@@ -1,3 +1,5 @@
+import type { Rule } from './rules'
+
 /**
  * What a converter produces for one statement.
  *
@@ -25,16 +27,28 @@ export interface StatementResult extends StatementConversion {
   input: string
 }
 
+/** A warning tied back to its catalogue rule and the statement it came from. */
+export interface ConversionNote {
+  rule: Rule
+  /** The converter's original warning text — what the notes list shows. */
+  message: string
+  /** 0-based index into `ConvertResult.statements`. */
+  statement: number
+}
+
 /**
  * The result of converting a whole script. `output` is the re-joined translation;
- * `statements` is the per-statement breakdown; `warnings` is the flattened list for the
- * summary; `blocked` is set only when *every* statement was refused (so the UI shows the
- * single "not translated" panel, as it did before scripts were supported).
+ * `statements` is the per-statement breakdown; `warnings` is the flattened, de-duplicated
+ * string list for the summary; `notes` is the same information tied to catalogue rules
+ * and statement positions (Explain mode / round-trip read this); `blocked` is set only
+ * when *every* statement was refused (so the UI shows the single "not translated" panel,
+ * as it did before scripts were supported).
  */
 export interface ConvertResult {
   output: string
   warnings: string[]
-  blocked?: { reason: string }
+  notes: ConversionNote[]
+  blocked?: { reason: string; rule?: Rule }
   statements: StatementResult[]
 }
 

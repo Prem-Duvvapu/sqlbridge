@@ -15,6 +15,8 @@ entirely in the browser — paste a query, pick a direction, read the translatio
   below).
 - **Multi-statement scripts** — paste a whole `.sql` file; each statement is translated
   on its own and the file is re-assembled with its original spacing and terminators.
+- **Explained notes** — every rewrite comes with a one-line reason (and a caution flag
+  where the two dialects don't behave identically).
 - **Confidence gate** — constructs that can't be translated safely (`CONNECT BY`,
   sequences, `MERGE`, `PIVOT`, stored procedures, …) are flagged for a manual rewrite
   rather than converted into something subtly wrong. In a script, the flagged statement
@@ -80,7 +82,8 @@ src/
 │   ├── types.ts          Converter / StatementConversion / ConvertResult
 │   ├── oracleToMysql.ts   one Converter per direction (single-statement)
 │   ├── mysqlToOracle.ts
-│   └── index.ts           registry + convertScript (split → convert → re-join)
+│   ├── index.ts           registry + convertScript (split → convert → re-join)
+│   └── rules.ts           rule catalogue — the "why" behind each rewrite
 ├── sql/split.ts          statement splitter (strings, comments, PL/SQL blocks)
 ├── format.ts             sql-formatter wrapper (lazy-loaded, dialect-aware)
 ├── highlight.ts          display-only SQL tokenizer

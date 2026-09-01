@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import type { ConversionNote } from './converters'
 import { convert, getSources, getTargetsFor } from './converters'
 import type { Workspace } from './persistence'
 import { loadTheme, loadWorkspace, saveTheme, saveWorkspace } from './persistence'
@@ -74,6 +75,7 @@ function App() {
   const [input, setInput] = useState(initial.input)
   const [output, setOutput] = useState(initial.output)
   const [warnings, setWarnings] = useState<string[]>(initial.warnings)
+  const [notes, setNotes] = useState<ConversionNote[]>([])
   const [blockedReason, setBlockedReason] = useState<string | null>(null)
   const [theme, setTheme] = useState(loadTheme)
   const [copied, setCopied] = useState(false)
@@ -89,6 +91,7 @@ function App() {
       setInput(text)
       setOutput('')
       setWarnings([])
+      setNotes([])
       setBlockedReason(null)
       setNotice(null)
       setCopied(false)
@@ -128,6 +131,7 @@ function App() {
       setInput(shared.input)
       setOutput(result.output)
       setWarnings(result.warnings)
+      setNotes(result.notes)
       setBlockedReason(result.blocked?.reason ?? null)
     })
     return () => { cancelled = true }
@@ -158,6 +162,7 @@ function App() {
     const result = convert(input, source, target)
     setOutput(result.output)
     setWarnings(result.warnings)
+    setNotes(result.notes)
     setBlockedReason(result.blocked?.reason ?? null)
     setCopied(false)
   }, [canConvert, input, source, target])
@@ -168,6 +173,7 @@ function App() {
     setInput(output)
     setOutput(input)
     setWarnings([])
+    setNotes([])
     setBlockedReason(null)
     setNotice(null)
   }
@@ -212,6 +218,7 @@ function App() {
     setInput('')
     setOutput('')
     setWarnings([])
+    setNotes([])
     setBlockedReason(null)
     setNotice(null)
     setCopied(false)
@@ -244,6 +251,7 @@ function App() {
     setInput(sample.sql)
     setOutput(result.output)
     setWarnings(result.warnings)
+    setNotes(result.notes)
     setBlockedReason(result.blocked?.reason ?? null)
     setNotice(null)
     setCopied(false)
@@ -485,16 +493,25 @@ function App() {
       </main>
       )}
 
-      {warnings.length > 0 && (
-        <section className="notes" aria-label="Conversion notes">
-          <h2 className="notes-title">
-            {warnings.length} conversion {warnings.length === 1 ? 'note' : 'notes'}
-          </h2>
-          <ul className="notes-list">
-            {warnings.map(w => <li key={w} className="note">{w}</li>)}
-          </ul>
-        </section>
-      )}
+      {warnings.length > 0 && (() => {
+        const explained = new Set(notes.map(n => n.message))
+        const plain = warnings.filter(w => !explained.has(w))
+        const count = notes.length + plain.length
+        return (
+          <section className="notes" aria-label="Conversion notes">
+            <h2 className="notes-title">{count} conversion {count === 1 ? 'note' : 'notes'}</h2>
+            <ul className="notes-list">
+              {notes.map((n, i) => (
+                <li key={`${n.rule.id}-${i}`} className={`note note-${n.rule.severity}`}>
+                  <span className="note-text">{n.message}</span>
+                  <span className="note-why">{n.rule.detail}</span>
+                </li>
+              ))}
+              {plain.map(w => <li key={w} className="note">{w}</li>)}
+            </ul>
+          </section>
+        )
+      })()}
 
       <section className="samples" aria-label="Sample queries">
         <h2 className="samples-title">Samples</h2>

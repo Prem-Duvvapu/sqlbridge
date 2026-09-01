@@ -1,6 +1,7 @@
-import type { Converter, ConvertResult, Dialect, StatementResult } from './types'
+import type { Converter, ConversionNote, ConvertResult, Dialect, StatementResult } from './types'
 import { oracleToMysql } from './oracleToMysql'
 import { mysqlToOracle } from './mysqlToOracle'
+import { ruleForBlockedReason, ruleForWarning } from './rules'
 import { joinStatements, splitStatements, type Statement } from '../sql/split'
 
 /**
@@ -41,7 +42,7 @@ export function convert(sql: string, source: string, target: string): ConvertRes
   const converter = REGISTRY.get(key(source, target))
   if (!converter) {
     const msg = `No converter available for ${source} -> ${target}`
-    return { output: `Error: ${msg}`, warnings: [msg], statements: [] }
+    return { output: `Error: ${msg}`, warnings: [msg], notes: [], statements: [] }
   }
   try {
     return convertScript(sql, converter)
@@ -50,6 +51,7 @@ export function convert(sql: string, source: string, target: string): ConvertRes
     return {
       output: sql,
       warnings: [`Conversion hit an internal error and stopped (${detail}). Your SQL is shown unchanged — nothing was translated.`],
+      notes: [],
       statements: [],
     }
   }
@@ -82,7 +84,14 @@ function convertScript(script: string, converter: Converter): ConvertResult {
   }
 
   const results = pieces.map(p => p.result).filter((r): r is StatementResult => r !== undefined)
-  if (results.length === 0) return { output: script.trim(), warnings: [], statements: [] }
+  if (results.length === 0) return { output: script.trim(), warnings: [], notes: [], statements: [] }
+
+  const notes: ConversionNote[] = results.flatMap(r =>
+    r.warnings.flatMap(message => {
+      const rule = ruleForWarning(message)
+      return rule ? [{ rule, message, statement: r.index }] : []
+    }),
+  )
 
   const anyTranslated = results.some(r => !r.blocked)
   // Only annotate a refused statement when it sits among translated ones — a lone refused
@@ -102,13 +111,15 @@ function convertScript(script: string, converter: Converter): ConvertResult {
   })
 
   const everyStatementBlocked = results.every(r => r.blocked)
+  const blockedReason = everyStatementBlocked ? results[0].blocked : undefined
   return {
     output: joinStatements(parts).trim(),
     // de-duplicated for the summary: a 40-statement script shouldn't list
     // "Converted NVL to IFNULL" forty times.
     warnings: [...new Set(results.flatMap(r => r.warnings))],
+    notes,
     statements: results,
-    blocked: everyStatementBlocked ? results[0].blocked : undefined,
+    blocked: blockedReason && { ...blockedReason, rule: ruleForBlockedReason(blockedReason.reason) },
   }
 }
 
@@ -128,4 +139,7 @@ export function getTargetsFor(source: string): Dialect[] {
 }
 
 export { oracleToMysql, mysqlToOracle }
-export type { Converter, ConvertResult, Dialect, StatementConversion, StatementResult } from './types'
+export type {
+  Converter, ConversionNote, ConvertResult, Dialect, StatementConversion, StatementResult,
+} from './types'
+export { RULES, type Rule, type RuleSeverity } from './rules'

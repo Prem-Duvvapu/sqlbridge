@@ -4,8 +4,8 @@ Approved plan for the next round of work. Tick items off as each phase lands, th
 `MIGRATION.md` tracked the Spring Boot → React migration.
 
 **Status:** in progress. ✅ 1 (drag-drop), ✅ 2 (shareable URL), ✅ A + core of 3
-(statement splitter + multi-statement conversion). Next: B (Rewriter + rule catalogue),
-then 3's UI polish (notes grouped per statement), 4–6.
+(splitter + multi-statement), ✅ B (rule catalogue). Next: 4 (Explain mode), then 5
+(DDL depth), 6 (round-trip), and 3's per-statement notes grouping.
 
 ## Context
 
@@ -110,7 +110,26 @@ moves inside `convertStatement`, giving the per-statement behavior decided above
 **Files:** `src/sql/split.ts` (+ test), `src/converters/types.ts`,
 `src/converters/{oracleToMysql,mysqlToOracle,index}.ts`, `src/App.tsx`.
 
-### B. `Rewriter` + rule catalogue
+### B. Rule catalogue — ✅ done (scoped)
+
+Shipped `src/converters/rules.ts`: a `RULES` catalogue — one entry per rewrite and per
+gate refusal, each with `id`, `title`, a one-to-two-sentence `detail` ("why"),
+`severity` (`info` / `caution` / `blocked`), and `roundTripLossy` where A→B→A is expected
+to differ. `ruleForWarning()` / `ruleForBlockedReason()` map the converters' existing
+warning strings and blocked reasons onto rules — **no converter bodies changed**, so all
+73 converter tests held.
+
+`ConvertResult` gained `notes: ConversionNote[]` (`{ rule, message, statement }`) and
+`blocked.rule`. `App.tsx`'s notes list now shows each rule's "why" line and colours the
+bullet by severity.
+
+**Deviation from the original plan:** the `Rewriter` class with per-rewrite output-span
+tracking was *not* built — it would have rewritten every `.replace` in both converters
+(high risk) for a feature (span highlighting in Explain mode) that can be approximated by
+re-finding the rewritten token. The catalogue + `notes` plumbing delivers what 4/5/6
+actually need. Span tracking can come back as its own change if Explain mode wants it.
+
+Original design notes:
 
 **New:** `src/converters/rules.ts`, `src/converters/rewriter.ts`
 
