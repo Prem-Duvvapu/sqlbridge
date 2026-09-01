@@ -27,6 +27,16 @@ npx vitest run -t "rewrites NVL to IFNULL"
 There is no linter. `npm run build` is the type-check gate; `tsconfig.app.json` has
 `noUnusedLocals` / `noUnusedParameters` on, so prefix intentionally-unused params with `_`.
 
+## Working here
+
+- `MIGRATION.md` — the Spring Boot → React port and the bugs found during it.
+- `ROADMAP.md` — approved plan for the next features; tick items as they land.
+- `RCA.md` — **root-cause log. Add an entry for every real defect**: symptom, root
+  cause, fix, why the tests missed it, what catches it now.
+- Tests: pure logic runs in Node; DOM suites start with `// @vitest-environment jsdom`.
+  A new component or hook ships with its test in the same change. CI blocks merge to
+  `main` on a red suite.
+
 ## What this is
 
 A fully client-side SQL dialect translator (Oracle ↔ MySQL). React 19 + Vite 6 + TS,
@@ -85,6 +95,11 @@ the raw SQL. Conventions that will bite you if ignored:
   exactly. Never throws — degrades to a plain two-block diff.
 - `src/ErrorBoundary.tsx` — wraps `<App/>` in `main.tsx`; recovery screen for anything
   the inline handlers didn't catch.
+- `src/FileDrop.tsx` + `src/fileTransfer.ts` — `useFileImport` puts drag listeners on
+  `window` (depth counter for nested dragenter/leave; files-only) and returns the hidden
+  `<input>` plus `openPicker`. `fileTransfer.ts` holds the 2 MB import cap and the
+  `<a download>` save. `App.tsx`'s `notice` state is the shared inline-error channel
+  (format / copy / file).
 - `src/persistence.ts` — two storage tiers: `sessionStorage` for per-tab isolation,
   `localStorage` (`sqlbridge:last`) to reseed a fresh tab after a browser restart. Every
   access is `try/catch`-wrapped (Safari private mode throws). `loadWorkspace()` returns

@@ -3,7 +3,7 @@
 Approved plan for the next round of work. Tick items off as each phase lands, the way
 `MIGRATION.md` tracked the Spring Boot → React migration.
 
-**Status:** approved, not started. Nothing below is implemented yet.
+**Status:** in progress. ✅ 1 (drag-drop + download). Next: 2 (shareable URL).
 
 ## Context
 
@@ -145,16 +145,19 @@ converters, `src/converters/types.ts`.
 
 ## The six features
 
-### 1. Drag-and-drop file (+ download) — *small, independent*
+### 1. Drag-and-drop file (+ download) — ✅ done
 
-- Drop target is the whole app with a dashed overlay on `dragover`; the source panel
-  highlights. Accepts `.sql` / `.txt` / any `text/*`.
-- A visible **Open file** button wrapping a hidden `<input type="file">` — drag-drop
-  alone is unusable by keyboard and absent on mobile.
-- 2 MB cap with a plain message; reading a 50 MB dump would lock the tab.
-- Reverse direction: **Download .sql** on the result, via `Blob` + `<a download>`.
-  (Note: downloads are inert inside the Artifact sandbox — works on the real site.)
-- **Files:** `src/FileDrop.tsx`, `src/App.tsx`, `src/App.css`.
+- `src/FileDrop.tsx` — `useFileImport` hook (window drag listeners + a depth counter for
+  child dragenter/leave, files-only) and a `DropOverlay`. `src/fileTransfer.ts` —
+  `checkImportSize` (2 MB cap), `suggestedFilename`, `downloadText` (`Blob` + `<a
+  download>`; inert in the Artifact sandbox, fine on the deployed site).
+- **Open file** button in the source panel head; hidden `<input type=file>` accepts
+  `.sql` / `.txt` / `text/*`. **Download** button in the target panel head and the diff
+  head.
+- App-wide dashed overlay on file drag; the source panel border lights up.
+- `App.tsx`: `formatError` state renamed to `notice` — it's now the shared inline-notice
+  channel (format, copy, and file errors).
+- Tests: `src/fileTransfer.test.ts` (size guard, filename slugging).
 
 ### 2. Shareable URL — *independent*
 
