@@ -1,70 +1,113 @@
-# sqlbridge
+# SQLBridge
 
-SQL dialect converter — translates queries between database dialects (Oracle ↔ MySQL, extensible to any pair).
+Translate SQL between database dialects (Oracle ↔ MySQL, extensible to any pair). Runs
+entirely in the browser — paste a query, pick a direction, read the translation.
+
+**[Live demo](https://claude.ai/code/artifact/d76ab4c2-ad7a-4fa6-bdf7-ba0807435fbe)**
+
+## What it does
+
+- **Dialect translation** — regex-based rewrites for pagination, null handling, date
+  functions, string operators, identifier quoting, data types, and more (full table
+  below).
+- **Confidence gate** — constructs that can't be translated safely (`CONNECT BY`,
+  sequences, `MERGE`, `PIVOT`, …) are flagged for a manual rewrite rather than converted
+  into something subtly wrong.
+- **Formatter** — dialect-aware reindentation onto multiple lines, on either panel.
+- **Syntax highlighting** — keywords, logical connectors, table names, functions, and
+  literals each in their own colour.
+- **Per-tab workspaces** — each browser tab keeps its own query and result; reopening the
+  site restores your last session.
+
+Everything happens client-side. There is no server, no account, and nothing you paste
+leaves your machine.
+
+## Develop
+
+```bash
+npm install
+npm run dev      # http://localhost:50173
+npm test         # Vitest — converter, formatter and highlighter suites
+npm run build    # type-check + production build to dist/
+npm run preview  # serve the production build on http://localhost:50174
+```
+
+Change the dev port with `SQLBRIDGE_PORT=12345 npm run dev`, or put
+`SQLBRIDGE_PORT=12345` in a git-ignored `.env.local`. If the port is taken, Vite steps to
+the next free one.
+
+Run a single test file or case:
+
+```bash
+npx vitest run src/converters/converters.test.ts
+npx vitest run -t "rewrites NVL to IFNULL"
+```
+
+## Deploy
+
+Static site, zero configuration.
+
+**From GitHub (recommended)** — push the repo, then at
+[vercel.com/new](https://vercel.com/new) import it. Vercel detects Vite, builds with
+`npm run build`, and serves `dist/`. Every push to the default branch redeploys; pull
+requests get preview URLs. No build settings or environment variables to configure.
+
+**From the CLI** — `npm run build && npx vercel deploy --prebuilt`.
+
+The same `dist/` folder also drops onto Netlify, GitHub Pages, Cloudflare Pages, or any
+static host.
 
 ## Architecture
 
 ```
-sqlbridge/
-├── backend/                # Spring Boot 3 (Java 17)
-│   ├── pom.xml
-│   └── src/main/java/com/sqlbridge/
-│       ├── SqlBridgeApplication.java
-│       ├── controller/ConvertController.java    # REST: POST /convert, GET /dialects
-│       ├── model/                               # ConvertRequest/Response, DialectInfo
-│       ├── service/ConverterRegistry.java       # Routes source→target to converter
-│       └── converter/
-│           ├── SqlConverter.java                # Interface: source(), target(), convert()
-│           ├── OracleToMySqlConverter.java
-│           └── MySqlToOracleConverter.java
-├── frontend/               # React + Vite + TypeScript
-│   ├── package.json
-│   ├── vite.config.ts
-│   └── src/App.tsx          # Dual-pane editor with direction swap
-└── README.md
+src/
+├── converters/
+│   ├── types.ts          SqlConverter interface, shared regex helpers
+│   ├── oracleToMysql.ts   one Converter per direction
+│   ├── mysqlToOracle.ts
+│   └── index.ts           registry: routes source→target, lists dialects
+├── format.ts             sql-formatter wrapper (lazy-loaded, dialect-aware)
+├── highlight.ts          display-only SQL tokenizer
+├── persistence.ts        session/local storage tiers
+├── SqlEditor.tsx         highlighted input + read-only view
+└── App.tsx               the page
 ```
 
-## Quick start
+A converter is `{ source, target, convert(sql) -> { output, warnings, blocked? } }`. The
+registry keys converters by `"source->target"` and returns an error result — never
+throws — for an unknown pair. Converters are pure: no module-level mutable state, so any
+number of conversions can run without interfering.
 
-### Backend
+Each `convert()` runs an **ordered** sequence of string rewrites. Order is load-bearing —
+`TRUNC(SYSDATE)` is handled before the bare `SYSDATE` rewrite, pagination before
+function rewrites — so a new rewrite has to be slotted into the right place, and the test
+suite is how you check you got it right.
 
-```bash
-cd backend
-mvn spring-boot:run
-# → http://localhost:8000
+## Adding a dialect pair
+
+Write one `Converter` and register it:
+
+```ts
+// src/converters/oracleToPostgres.ts
+import type { Converter } from './types'
+
+export const oracleToPostgres: Converter = {
+  source: 'oracle',
+  target: 'postgresql',
+  convert(sql) {
+    // ordered rewrites…
+    return { output: sql, warnings: [] }
+  },
+}
 ```
 
-### Frontend
-
-```bash
-cd frontend
-npm install
-npm run dev
-# → http://localhost:5173
+```ts
+// src/converters/index.ts
+const CONVERTERS = [oracleToMysql, mysqlToOracle, oracleToPostgres]
 ```
 
-The Vite dev server proxies `/convert` and `/dialects` to the backend.
-
-## API
-
-### `POST /convert`
-
-```json
-{ "sql": "SELECT NVL(salary, 0), SYSDATE FROM emp WHERE ROWNUM <= 5",
-  "source": "oracle",
-  "target": "mysql" }
-```
-
-Returns:
-
-```json
-{ "output": "SELECT IFNULL(salary, 0), NOW() FROM emp LIMIT 5",
-  "warnings": ["Converted ROWNUM <= n to LIMIT"] }
-```
-
-### `GET /dialects`
-
-Returns available source databases. Future: also returns targets per source.
+The dialect dropdowns, the formatter language map, and the routing all pick it up from
+there.
 
 ## Supported conversions (Oracle ↔ MySQL)
 
@@ -73,11 +116,11 @@ Returns available source databases. Future: also returns targets per source.
 | `ROWNUM = 1 / <= n` | `LIMIT 1 / LIMIT n` |
 | `FETCH FIRST n ROWS ONLY` | `LIMIT n` |
 | `OFFSET m ROWS FETCH NEXT n ROWS ONLY` | `LIMIT n OFFSET m` |
-| `FROM DUAL` | removed (auto) |
+| `FROM DUAL` | removed |
 | `NVL(a, b)` | `IFNULL(a, b)` |
 | `NVL2(a, b, c)` | `IF(a IS NOT NULL, b, c)` |
-| `DECODE(expr, when, then, ...)` | `CASE expr WHEN ... END` |
-| `LISTAGG(expr, sep) WITHIN GROUP(...)` | `GROUP_CONCAT(expr SEPARATOR sep)` |
+| `DECODE(expr, when, then, …)` | `CASE expr WHEN … END` |
+| `LISTAGG(expr, sep) WITHIN GROUP(…)` | `GROUP_CONCAT(expr SEPARATOR sep)` |
 | `SYSDATE` / `SYSTIMESTAMP` | `NOW()` / `NOW(6)` |
 | `CURRENT_DATE` | `CURDATE()` |
 | `TO_DATE(str, fmt)` | `STR_TO_DATE(str, fmt)` |
@@ -91,41 +134,18 @@ Returns available source databases. Future: also returns targets per source.
 | `"ident"` quoting | `` `ident` `` quoting |
 | `NUMBER(10)` / `VARCHAR2(n)` / `CLOB` | `DECIMAL(10)` / `VARCHAR(n)` / `LONGTEXT` |
 | `(+)` outer join | `LEFT JOIN` |
-| `ORDER BY x NULLS FIRST\|LAST` | removed |
-| subquery alias optional | subquery alias required |
-| `CONNECT BY` | ⚠ flagged for manual rewrite |
-| `seq.NEXTVAL` | ⚠ flagged for manual replacement |
+| `ORDER BY x NULLS FIRST\|LAST` | `ORDER BY x` |
+| subquery alias optional | subquery alias added |
+| `CONNECT BY` · `seq.NEXTVAL` · `MERGE` · `PIVOT` · … | flagged for manual rewrite |
 
-All reverse conversions (MySQL → Oracle) also supported, plus:
+Reverse (MySQL → Oracle) is also supported, plus `IF()` → `CASE`, `UUID()` → `SYS_GUID()`,
+`DATABASE()`/`CONNECTION_ID()` → `SYS_CONTEXT(…)`, `DATE_ADD` → `INTERVAL` arithmetic,
+`DATEDIFF` → date subtraction, multi-row `INSERT` → `INSERT ALL`, `SELECT 1` →
+`SELECT 1 FROM DUAL`, and the data-type map in reverse.
 
-| MySQL | Oracle |
-|---|---|
-| `IF(cond, a, b)` | `CASE WHEN cond THEN a ELSE b END` |
-| `UUID()` | `SYS_GUID()` |
-| `CONNECTION_ID()` | `SYS_CONTEXT('USERENV','SESSIONID')` |
-| `DATABASE()` | `SYS_CONTEXT('USERENV','DB_NAME')` |
-| `DATE_ADD(d, INTERVAL n UNIT)` | `d + INTERVAL 'n' UNIT` |
-| `DATEDIFF(d1, d2)` | `CAST(d1 AS DATE) - CAST(d2 AS DATE)` |
-| `DATE(dt)` | `TRUNC(dt)` |
-| multi-row `INSERT` | `INSERT ALL ... SELECT * FROM DUAL` |
-| `INT` / `VARCHAR(n)` / `LONGBLOB` | `NUMBER(10)` / `VARCHAR2(n)` / `BLOB` |
-| `SELECT 1` | `SELECT 1 FROM DUAL` |
+## Caveats
 
-## Adding a new database pair
-
-Create a new class implementing `SqlConverter`:
-
-```java
-@Component
-public class OracleToPostgreSqlConverter implements SqlConverter {
-    public String source() { return "oracle"; }
-    public String target() { return "postgresql"; }
-    public ConvertResponse convert(String sql) {
-        // ... conversion logic ...
-    }
-}
-```
-
-Spring Boot auto-discovers it via `ConverterRegistry` constructor injection. No config changes needed.
-
-
+The translation is lexical, not a parser. It handles the common shapes well and warns
+when it's unsure, but **review every result before running it against a database** —
+especially anything with nested subqueries, unusual quoting, or vendor-specific syntax
+not in the table above.
