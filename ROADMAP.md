@@ -4,8 +4,11 @@ Approved plan for the next round of work. Tick items off as each phase lands, th
 `MIGRATION.md` tracked the Spring Boot → React migration.
 
 **Status:** in progress. ✅ 1 (drag-drop), ✅ 2 (shareable URL), ✅ A + core of 3
-(splitter + multi-statement), ✅ B (rule catalogue). Next: 4 (Explain mode), then 5
-(DDL depth), 6 (round-trip), and 3's per-statement notes grouping.
+(splitter + multi-statement), ✅ B (rule catalogue). 🔨 6 (round-trip) —
+`src/roundTrip.ts` + `src/RoundTripPanel.tsx` landed but **inert** (not imported); next
+step is the App wiring (a "Check round-trip" button + panel state), CSS, and
+`roundTrip.test.ts`. Then: 5 (DDL depth), 4 (dedicated Explain view — optional, B already
+shows the "why"), 3's per-statement notes grouping.
 
 ## Context
 
