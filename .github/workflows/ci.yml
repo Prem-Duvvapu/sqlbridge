@@ -1,0 +1,31 @@
+name: CI
+
+# main deploys to Vercel on every push, so nothing reaches main without passing here.
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+# A new push to a PR cancels the previous run for that PR.
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - run: npm ci
+
+      - name: Tests
+        run: npm test
+
+      - name: Type-check and build
+        run: npm run build
