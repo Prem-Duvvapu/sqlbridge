@@ -3,7 +3,10 @@
 Translate SQL between database dialects (Oracle ↔ MySQL, extensible to any pair). Runs
 entirely in the browser — paste a query, pick a direction, read the translation.
 
-**[Live demo](https://claude.ai/code/artifact/d76ab4c2-ad7a-4fa6-bdf7-ba0807435fbe)**
+[![CI](https://github.com/Prem-Duvvapu/sqlbridge/actions/workflows/ci.yml/badge.svg)](https://github.com/Prem-Duvvapu/sqlbridge/actions/workflows/ci.yml)
+
+**[Live demo](https://sqlbridge.vercel.app/)** · CI must pass before a PR can merge to
+`main`, which auto-deploys.
 
 ## What it does
 
