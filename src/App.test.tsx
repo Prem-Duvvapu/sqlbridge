@@ -1,13 +1,17 @@
 // @vitest-environment jsdom
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import App from './App'
+import { encodeShare } from './share'
 
 beforeEach(() => {
   localStorage.clear()
   sessionStorage.clear()
+  window.location.hash = ''
 })
+
+afterEach(() => { window.location.hash = '' })
 
 const editor = (label: RegExp) => screen.getByLabelText(label) as HTMLTextAreaElement
 
@@ -136,6 +140,36 @@ describe('App — Clear', () => {
     expect(screen.getByLabelText(/mysql sql output/i)).toHaveTextContent('Translated SQL appears here')
     expect(screen.queryByRole('region', { name: /conversion notes/i })).not.toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Clear' })).toBeDisabled()
+  })
+})
+
+describe('App — share links', () => {
+  it('copies a link containing the workspace token', async () => {
+    const writeText = vi.fn().mockResolvedValue(undefined)
+    vi.stubGlobal('navigator', { ...navigator, clipboard: { writeText } })
+    render(<App />)
+
+    await userEvent.click(screen.getByRole('button', { name: 'Share' }))
+    expect(writeText).toHaveBeenCalledWith(expect.stringContaining('#s='))
+    expect(await screen.findByRole('button', { name: /link copied/i })).toBeInTheDocument()
+    vi.unstubAllGlobals()
+  })
+
+  it('opens the workspace encoded in the URL hash, converted', async () => {
+    const token = await encodeShare({ v: 1, input: 'SELECT SYSDATE FROM DUAL', source: 'oracle', target: 'mysql' })
+    window.location.hash = `#s=${token}`
+    render(<App />)
+
+    expect(await screen.findByDisplayValue('SELECT SYSDATE FROM DUAL')).toBeInTheDocument()
+    expect(screen.getByLabelText(/mysql sql output/i).textContent).toContain('NOW()')
+    // token is dropped from the address bar once consumed
+    expect(window.location.hash).toBe('')
+  })
+
+  it('starts fresh with a notice when the hash token is corrupt', async () => {
+    window.location.hash = '#s=cGARBAGE!!!'
+    render(<App />)
+    expect(await screen.findByText(/couldn't be read/i)).toBeInTheDocument()
   })
 })
 

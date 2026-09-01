@@ -8,6 +8,7 @@ import { diffSql } from './diff'
 import { DiffView } from './DiffView'
 import { DropOverlay, useFileImport } from './FileDrop'
 import { downloadText, suggestedFilename } from './fileTransfer'
+import { buildShareUrl, clearShareToken, decodeShare, encodeShare, readShareToken } from './share'
 import './App.css'
 
 interface Sample {
@@ -45,6 +46,8 @@ const FEEDBACK_LINKS = [
   { label: 'Give feedback', href: 'https://github.com/Prem-Duvvapu/sqlbridge/issues/new?template=feedback.md' },
 ]
 
+const EMPTY_WORKSPACE: Workspace = { input: '', output: '', warnings: [], source: 'oracle', target: 'mysql' }
+
 /**
  * First visit opens on a worked example rather than two empty boxes — the fastest way to
  * show what the tool does is to show it having already done it.
@@ -56,7 +59,13 @@ function seedWorkspace(): Workspace {
 }
 
 function App() {
-  const initial = useMemo(() => loadWorkspace() ?? seedWorkspace(), [])
+  // A share link overrides whatever this tab had — start it blank and let the effect
+  // below fill it in once the token is decoded, rather than flashing the stored workspace.
+  const shareToken = useMemo(readShareToken, [])
+  const initial = useMemo(
+    () => (shareToken ? EMPTY_WORKSPACE : loadWorkspace() ?? seedWorkspace()),
+    [shareToken],
+  )
   const dialects = useMemo(getSources, [])
 
   const [source, setSource] = useState(initial.source)
@@ -67,10 +76,12 @@ function App() {
   const [blockedReason, setBlockedReason] = useState<string | null>(null)
   const [theme, setTheme] = useState(loadTheme)
   const [copied, setCopied] = useState(false)
+  const [shareCopied, setShareCopied] = useState(false)
   const [notice, setNotice] = useState<string | null>(null)
   const [view, setView] = useState<'split' | 'diff'>('split')
 
   const copyTimer = useRef<number | undefined>(undefined)
+  const shareTimer = useRef<number | undefined>(undefined)
 
   const fileImport = useFileImport({
     onText: text => {
@@ -98,7 +109,33 @@ function App() {
     saveWorkspace({ input, output, warnings, source, target })
   }, [input, output, warnings, source, target])
 
-  useEffect(() => () => window.clearTimeout(copyTimer.current), [])
+  // Resolve a share link on first load, then drop it from the address bar so the URL
+  // doesn't keep describing a workspace the user has since edited.
+  useEffect(() => {
+    if (!shareToken) return
+    let cancelled = false
+    decodeShare(shareToken).then(shared => {
+      if (cancelled) return
+      clearShareToken()
+      if (!shared) {
+        setNotice("That share link couldn't be read — starting fresh.")
+        return
+      }
+      const result = convert(shared.input, shared.source, shared.target)
+      setSource(shared.source)
+      setTarget(shared.target)
+      setInput(shared.input)
+      setOutput(result.output)
+      setWarnings(result.warnings)
+      setBlockedReason(result.blocked?.reason ?? null)
+    })
+    return () => { cancelled = true }
+  }, [shareToken])
+
+  useEffect(() => () => {
+    window.clearTimeout(copyTimer.current)
+    window.clearTimeout(shareTimer.current)
+  }, [])
 
   const targets = useMemo(() => getTargetsFor(source), [source])
   const canConvert = input.trim().length > 0 && source !== target
@@ -174,6 +211,25 @@ function App() {
     setNotice(null)
     setCopied(false)
     setView('split')
+  }
+
+  async function shareLink() {
+    const token = await encodeShare({ v: 1, input, source, target })
+    if (!token) {
+      setNotice('This SQL is too long to share as a link — use Download instead.')
+      return
+    }
+    const url = buildShareUrl(token)
+    try {
+      await navigator.clipboard.writeText(url)
+      setShareCopied(true)
+      setNotice(null)
+      window.clearTimeout(shareTimer.current)
+      shareTimer.current = window.setTimeout(() => setShareCopied(false), 1800)
+    } catch {
+      // Clipboard blocked — put the link in the notice so it can still be copied by hand.
+      setNotice(url)
+    }
   }
 
   function loadSample(sample: Sample) {
@@ -309,6 +365,15 @@ function App() {
             title="Empty both panels"
           >
             Clear
+          </button>
+          <button
+            type="button"
+            className="ghost-button ghost-button-sm"
+            onClick={shareLink}
+            disabled={!input.trim()}
+            title="Copy a link that reopens this SQL and direction"
+          >
+            {shareCopied ? 'Link copied' : 'Share'}
           </button>
         </div>
         <div className="view-switch" role="group" aria-label="View">

@@ -3,7 +3,8 @@
 Approved plan for the next round of work. Tick items off as each phase lands, the way
 `MIGRATION.md` tracked the Spring Boot → React migration.
 
-**Status:** in progress. ✅ 1 (drag-drop + download). Next: 2 (shareable URL).
+**Status:** in progress. ✅ 1 (drag-drop + download), ✅ 2 (shareable URL). Next: the
+foundational splitter (A) + rule-catalogue refactor (B).
 
 ## Context
 
@@ -159,22 +160,21 @@ converters, `src/converters/types.ts`.
   channel (format, copy, and file errors).
 - Tests: `src/fileTransfer.test.ts` (size guard, filename slugging).
 
-### 2. Shareable URL — *independent*
+### 2. Shareable URL — ✅ done
 
-- Payload is `{ v, input, source, target }`. **Not** the output — it's derivable, and
-  omitting it roughly halves the link.
-- Encoding: JSON → `CompressionStream('deflate-raw')` → base64url, with a plain
-  base64url fallback where `CompressionStream` is missing. No new dependency.
-- Stored in the **hash** (`#s=…`), never the query string. Hashes are not sent to the
-  server, so pasted SQL never reaches Vercel's logs — a real privacy property worth
-  stating in the README.
-- Over ~8000 chars, refuse and say so ("too long to share as a link — download the .sql
-  instead"); sharing tools truncate long URLs silently.
-- Load precedence becomes: **URL hash → sessionStorage → localStorage → seeded sample.**
-  An explicit link must win over whatever that tab had.
-- After the first edit, `history.replaceState` drops the hash so the URL stops
-  describing something that is no longer on screen.
-- **Files:** `src/share.ts` (+ test), `src/persistence.ts`, `src/App.tsx`.
+- `src/share.ts` — `{ v: 1, input, source, target }` (not the output) → JSON →
+  `deflate-raw` → base64url, with a one-char scheme prefix (`c`/`r`) and an
+  uncompressed fallback where `CompressionStream` is missing. No new dependency.
+- Token lives in the **hash** (`#s=…`) — never sent to the server, so shared SQL stays
+  out of Vercel's logs. Refused over 8000 chars ("too long — use Download").
+- Load precedence: **hash → sessionStorage → localStorage → seed.** A share link starts
+  the tab blank (`EMPTY_WORKSPACE`) so the stored workspace never flashes first; the
+  decoded link fills it and auto-converts. `clearShareToken()` drops the hash once
+  consumed.
+- **Share** button in the toolbar (Format · Clear · Share); copies the link, falls back
+  to showing it in the notice if the clipboard is blocked.
+- Tests: `src/share.test.ts` (round-trip, compression, URL-safety, size cap, fallback,
+  garbage), plus App-level share flow tests.
 
 ### 3. Multi-statement / script handling — *depends on A*
 

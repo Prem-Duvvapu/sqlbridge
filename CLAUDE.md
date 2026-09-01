@@ -100,6 +100,10 @@ the raw SQL. Conventions that will bite you if ignored:
   `<input>` plus `openPicker`. `fileTransfer.ts` holds the 2 MB import cap and the
   `<a download>` save. `App.tsx`'s `notice` state is the shared inline-error channel
   (format / copy / file).
+- `src/share.ts` — workspace → `deflate-raw` → base64url token in the URL **hash**
+  (`#s=`), never the query string, so shared SQL isn't sent to the server. Load
+  precedence in `App.tsx`: hash → sessionStorage → localStorage → seed; a share link
+  starts the tab from `EMPTY_WORKSPACE` so nothing flashes before the decode lands.
 - `src/persistence.ts` — two storage tiers: `sessionStorage` for per-tab isolation,
   `localStorage` (`sqlbridge:last`) to reseed a fresh tab after a browser restart. Every
   access is `try/catch`-wrapped (Safari private mode throws). `loadWorkspace()` returns

@@ -20,6 +20,9 @@ entirely in the browser — paste a query, pick a direction, read the translatio
   tokens the translation actually rewrote highlighted.
 - **File in / out** — drag a `.sql` file onto the page (or use **Open file**); save the
   result with **Download**. 2 MB cap.
+- **Share** — copies a link that reopens your SQL and direction. The link's payload sits
+  in the URL fragment, which browsers never send to the server, so a shared query isn't
+  logged anywhere.
 - **Formatter** — dialect-aware reindentation onto multiple lines, on either panel.
 - **Syntax highlighting** — keywords, logical connectors, table names, functions, and
   literals each in their own colour.
@@ -80,6 +83,7 @@ src/
 ├── diff.ts               line + token diff for the Diff view
 ├── FileDrop.tsx          drag-and-drop / file-picker import
 ├── fileTransfer.ts       import size guard + .sql download
+├── share.ts              deflate + base64url workspace links (URL hash)
 ├── persistence.ts        session/local storage tiers
 ├── SqlEditor.tsx         highlighted input + read-only view
 ├── DiffView.tsx          unified diff panel
