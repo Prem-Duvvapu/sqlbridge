@@ -189,6 +189,7 @@ body {
 .masthead {
   display: flex;
   align-items: baseline;
+  justify-content: space-between;
   gap: 16px;
   padding-bottom: 16px;
   border-bottom: 1px solid var(--rule);
@@ -212,13 +213,6 @@ body {
   background-clip: text;
   color: transparent;
   transition: none;
-}
-
-.tagline {
-  margin: 0;
-  flex: 1;
-  color: var(--ink-faint);
-  font-size: 13px;
 }
 
 .ghost-button {
@@ -822,11 +816,6 @@ body {
   .rail-line { display: none; }
   .panels { grid-template-columns: 1fr; }
   .editor, .blocked { min-height: 220px; }
-}
-
-@media (max-width: 560px) {
-  .masthead { flex-wrap: wrap; }
-  .tagline { order: 3; flex-basis: 100%; }
 }
 
 @media (prefers-reduced-motion: reduce) {

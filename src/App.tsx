@@ -168,7 +168,6 @@ function App() {
           <span className="wordmark-glyph" aria-hidden="true">⇌</span>
           <span className="wordmark-text">SQLBridge</span>
         </div>
-        <p className="tagline">SQL dialect translator · runs in your browser</p>
         <button
           type="button"
           className="ghost-button"
