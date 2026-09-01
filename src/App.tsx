@@ -6,6 +6,8 @@ import { format } from './format'
 import { SqlInput, SqlView } from './SqlEditor'
 import { diffSql } from './diff'
 import { DiffView } from './DiffView'
+import { DropOverlay, useFileImport } from './FileDrop'
+import { downloadText, suggestedFilename } from './fileTransfer'
 import './App.css'
 
 interface Sample {
@@ -65,10 +67,27 @@ function App() {
   const [blockedReason, setBlockedReason] = useState<string | null>(null)
   const [theme, setTheme] = useState(loadTheme)
   const [copied, setCopied] = useState(false)
-  const [formatError, setFormatError] = useState<string | null>(null)
+  const [notice, setNotice] = useState<string | null>(null)
   const [view, setView] = useState<'split' | 'diff'>('split')
 
   const copyTimer = useRef<number | undefined>(undefined)
+
+  const fileImport = useFileImport({
+    onText: text => {
+      setInput(text)
+      setOutput('')
+      setWarnings([])
+      setBlockedReason(null)
+      setNotice(null)
+      setCopied(false)
+      setView('split')
+    },
+    onError: setNotice,
+  })
+
+  function downloadOutput() {
+    if (output) downloadText(output, suggestedFilename(target))
+  }
 
   useEffect(() => {
     document.documentElement.dataset.theme = theme
@@ -108,7 +127,7 @@ function App() {
     setOutput(input)
     setWarnings([])
     setBlockedReason(null)
-    setFormatError(null)
+    setNotice(null)
   }
 
   function copyOutput() {
@@ -119,30 +138,31 @@ function App() {
       .then(() => navigator.clipboard.writeText(output))
       .then(() => {
         setCopied(true)
-        setFormatError(null)
+        setNotice(null)
         window.clearTimeout(copyTimer.current)
         copyTimer.current = window.setTimeout(() => setCopied(false), 1800)
       })
-      .catch(() => setFormatError('Could not copy to the clipboard — select the text and copy it manually.'))
+      .catch(() => setNotice('Could not copy to the clipboard — select the text and copy it manually.'))
   }
 
-  async function formatInput() {
+  // One Format action for both panels — each side is reindented with its own dialect's
+  // grammar. Whichever panel is empty (or blocked) is left alone.
+  async function formatSql() {
     try {
-      const result = await format(input, source)
-      setInput(result.sql)
-      setFormatError(result.error ?? null)
+      let problem: string | null = null
+      if (input.trim()) {
+        const r = await format(input, source)
+        setInput(r.sql)
+        problem = r.error ?? problem
+      }
+      if (output && blockedReason === null) {
+        const r = await format(output, target)
+        setOutput(r.sql)
+        problem = r.error ?? problem
+      }
+      setNotice(problem)
     } catch {
-      setFormatError('The formatter could not load. Check your connection and try again.')
-    }
-  }
-
-  async function formatOutput() {
-    try {
-      const result = await format(output, target)
-      setOutput(result.sql)
-      setFormatError(result.error ?? null)
-    } catch {
-      setFormatError('The formatter could not load. Check your connection and try again.')
+      setNotice('The formatter could not load. Check your connection and try again.')
     }
   }
 
@@ -154,7 +174,7 @@ function App() {
     setOutput(result.output)
     setWarnings(result.warnings)
     setBlockedReason(result.blocked?.reason ?? null)
-    setFormatError(null)
+    setNotice(null)
     setCopied(false)
   }
 
@@ -169,7 +189,15 @@ function App() {
     dialects.find(d => d.name === name)?.label ?? name
 
   return (
-    <div className="app" data-source={source} data-target={target}>
+    <div
+      className="app"
+      data-source={source}
+      data-target={target}
+      data-dragging={fileImport.isDragging || undefined}
+    >
+      {fileImport.fileInput}
+      <DropOverlay isDragging={fileImport.isDragging} />
+
       <header className="masthead">
         <div className="wordmark">
           <span className="wordmark-glyph" aria-hidden="true">⇌</span>
@@ -248,29 +276,40 @@ function App() {
           No converter for {labelFor(source)} → {labelFor(target)} yet.
         </p>
       )}
-      {formatError && (
-        <p className="notice" role="status">{formatError}</p>
+      {notice && (
+        <p className="notice" role="status">{notice}</p>
       )}
 
-      <div className="view-switch" role="group" aria-label="View">
+      <div className="panel-toolbar">
         <button
           type="button"
-          className="view-tab"
-          aria-pressed={!showDiff}
-          onClick={() => setView('split')}
+          className="ghost-button ghost-button-sm"
+          onClick={formatSql}
+          disabled={!input.trim() && !output}
+          title="Reindent both panels across multiple lines"
         >
-          Split
+          Format
         </button>
-        <button
-          type="button"
-          className="view-tab"
-          aria-pressed={showDiff}
-          onClick={() => setView('diff')}
-          disabled={!canDiff}
-          title={canDiff ? 'Show what the translation changed' : 'Convert something first'}
-        >
-          Diff
-        </button>
+        <div className="view-switch" role="group" aria-label="View">
+          <button
+            type="button"
+            className="view-tab"
+            aria-pressed={!showDiff}
+            onClick={() => setView('split')}
+          >
+            Split
+          </button>
+          <button
+            type="button"
+            className="view-tab"
+            aria-pressed={showDiff}
+            onClick={() => setView('diff')}
+            disabled={!canDiff}
+            title={canDiff ? 'Show what the translation changed' : 'Convert something first'}
+          >
+            Diff
+          </button>
+        </div>
       </div>
 
       {showDiff && diff ? (
@@ -279,6 +318,7 @@ function App() {
           sourceLabel={labelFor(source)}
           targetLabel={labelFor(target)}
           onCopy={copyOutput}
+          onDownload={downloadOutput}
           copied={copied}
         />
       ) : (
@@ -291,11 +331,10 @@ function App() {
               <button
                 type="button"
                 className="ghost-button ghost-button-sm"
-                onClick={formatInput}
-                disabled={!input.trim()}
-                title="Reindent this SQL across multiple lines"
+                onClick={fileImport.openPicker}
+                title="Load SQL from a .sql or .txt file"
               >
-                Format
+                Open file
               </button>
             </div>
           </div>
@@ -317,11 +356,11 @@ function App() {
               <button
                 type="button"
                 className="ghost-button ghost-button-sm"
-                onClick={formatOutput}
-                disabled={!output || blockedReason !== null}
-                title="Reindent this SQL across multiple lines"
+                onClick={downloadOutput}
+                disabled={!output}
+                title="Save the translated SQL as a .sql file"
               >
-                Format
+                Download
               </button>
               <button
                 type="button"

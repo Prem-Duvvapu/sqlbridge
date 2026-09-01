@@ -85,6 +85,11 @@ the raw SQL. Conventions that will bite you if ignored:
   exactly. Never throws — degrades to a plain two-block diff.
 - `src/ErrorBoundary.tsx` — wraps `<App/>` in `main.tsx`; recovery screen for anything
   the inline handlers didn't catch.
+- `src/FileDrop.tsx` + `src/fileTransfer.ts` — `useFileImport` puts drag listeners on
+  `window` (depth counter for nested dragenter/leave; files-only) and returns the hidden
+  `<input>` plus `openPicker`. `fileTransfer.ts` holds the 2 MB import cap and the
+  `<a download>` save. `App.tsx`'s `notice` state is the shared inline-error channel
+  (format / copy / file).
 - `src/persistence.ts` — two storage tiers: `sessionStorage` for per-tab isolation,
   `localStorage` (`sqlbridge:last`) to reseed a fresh tab after a browser restart. Every
   access is `try/catch`-wrapped (Safari private mode throws). `loadWorkspace()` returns

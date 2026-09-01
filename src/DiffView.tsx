@@ -18,6 +18,7 @@ interface DiffViewProps {
   sourceLabel: string
   targetLabel: string
   onCopy: () => void
+  onDownload: () => void
   copied: boolean
 }
 
@@ -26,7 +27,7 @@ interface DiffViewProps {
  * dialect's colour, added lines the target's; within a changed line pair, only the tokens
  * the converter actually rewrote are tinted.
  */
-export function DiffView({ diff, sourceLabel, targetLabel, onCopy, copied }: DiffViewProps) {
+export function DiffView({ diff, sourceLabel, targetLabel, onCopy, onDownload, copied }: DiffViewProps) {
   return (
     <section className="diff" aria-label={`Difference between ${sourceLabel} and ${targetLabel}`}>
       <div className="diff-head">
@@ -42,6 +43,14 @@ export function DiffView({ diff, sourceLabel, targetLabel, onCopy, copied }: Dif
             <span className="diff-swatch diff-swatch-add" aria-hidden="true" />
             {targetLabel}
           </span>
+          <button
+            type="button"
+            className="ghost-button ghost-button-sm"
+            onClick={onDownload}
+            disabled={diff.changed === 0}
+          >
+            Download
+          </button>
           <button
             type="button"
             className="ghost-button ghost-button-sm"

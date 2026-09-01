@@ -367,6 +367,41 @@ body {
   padding: 10px 14px;
 }
 
+/* ── file drop ────────────────────────────────────────────────────────── */
+
+.drop-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  background: color-mix(in srgb, var(--paper) 78%, transparent);
+  backdrop-filter: blur(2px);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity var(--transition);
+}
+
+.drop-overlay[data-active] { opacity: 1; }
+
+.drop-overlay-card {
+  font-family: var(--font-mono);
+  font-size: 15px;
+  font-weight: 500;
+  color: var(--ink);
+  padding: 40px 56px;
+  border: 2px dashed var(--rule-strong);
+  border-radius: var(--radius-lg);
+  background: var(--surface);
+}
+
+.app[data-dragging] .panel[data-role='source'] {
+  border-color: var(--source-hue);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--source-hue) 40%, transparent);
+}
+
 /* ── panels ───────────────────────────────────────────────────────────── */
 
 .panels {
@@ -573,11 +608,17 @@ body {
   color: var(--ink);
 }
 
-/* ── view switch ──────────────────────────────────────────────────────── */
+/* ── panel toolbar (Format · view switch) ─────────────────────────────── */
+
+.panel-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
 
 .view-switch {
   display: flex;
-  align-self: flex-end;
   gap: 2px;
   padding: 2px;
   background: var(--surface-sunk);

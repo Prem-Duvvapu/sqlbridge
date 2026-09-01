@@ -18,6 +18,8 @@ entirely in the browser — paste a query, pick a direction, read the translatio
   into something subtly wrong.
 - **Diff view** — a Split/Diff toggle; Diff shows a line-by-line comparison with only the
   tokens the translation actually rewrote highlighted.
+- **File in / out** — drag a `.sql` file onto the page (or use **Open file**); save the
+  result with **Download**. 2 MB cap.
 - **Formatter** — dialect-aware reindentation onto multiple lines, on either panel.
 - **Syntax highlighting** — keywords, logical connectors, table names, functions, and
   literals each in their own colour.
@@ -76,6 +78,8 @@ src/
 ├── format.ts             sql-formatter wrapper (lazy-loaded, dialect-aware)
 ├── highlight.ts          display-only SQL tokenizer
 ├── diff.ts               line + token diff for the Diff view
+├── FileDrop.tsx          drag-and-drop / file-picker import
+├── fileTransfer.ts       import size guard + .sql download
 ├── persistence.ts        session/local storage tiers
 ├── SqlEditor.tsx         highlighted input + read-only view
 ├── DiffView.tsx          unified diff panel
