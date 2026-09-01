@@ -54,11 +54,13 @@ describe('App — conversion flow', () => {
     expect(within(panel).getByText(/needs a manual rewrite/i)).toBeInTheDocument()
   })
 
-  it('lists conversion notes', async () => {
+  it('lists conversion notes with the rule’s reason', async () => {
     render(<App />)
     await userEvent.click(screen.getByRole('button', { name: /convert/i }))
     const notes = screen.getByRole('region', { name: /conversion notes/i })
-    expect(within(notes).getByText(/ROWNUM/i)).toBeInTheDocument()
+    expect(within(notes).getByText('Converted ROWNUM <= n to LIMIT')).toBeInTheDocument()
+    // the "why" line from the rule catalogue is shown too
+    expect(within(notes).getByText(/pseudo-column in the WHERE clause/i)).toBeInTheDocument()
   })
 
   it('converts a multi-statement script and shows the statement count', async () => {
