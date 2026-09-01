@@ -480,6 +480,9 @@ body {
 
 .editor-input::selection { background: color-mix(in srgb, var(--focus) 26%, transparent); }
 
+/* No highlight layer for very large input — the textarea shows its own text. */
+.editor-stack-plain .editor-input { color: var(--ink); }
+
 /* ── syntax palette ───────────────────────────────────────────────────── */
 
 :root {

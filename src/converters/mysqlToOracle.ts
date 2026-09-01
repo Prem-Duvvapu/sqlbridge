@@ -71,8 +71,10 @@ export const mysqlToOracle: Converter = {
 
   convert(sql: string): ConvertResult {
     const warnings: string[] = []
-    let s = sql.replace(/\s+$/, '')
-    if (s.endsWith(';')) s = s.slice(0, -1).replace(/\s+$/, '')
+    // Drop every trailing statement terminator and surrounding whitespace — one `;`, a
+    // stray `;;`, or `; ` all reduce to the same clean statement. A leftover terminator
+    // gets stranded mid-query once the LIMIT pass rewrites the clause in front of it.
+    let s = sql.replace(/[;\s]+$/, '')
 
     // Identifier quoting: `ident` -> "ident"
     s = s.replace(/`([^`]+)`/g, '"$1"')

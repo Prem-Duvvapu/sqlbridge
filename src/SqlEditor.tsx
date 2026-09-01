@@ -2,6 +2,13 @@ import { useMemo, useRef } from 'react'
 import { tokenize } from './highlight'
 
 /**
+ * Above this many characters, syntax highlighting is turned off. The highlight layer
+ * re-tokenizes and re-renders on every keystroke; on a large pasted script that stutters,
+ * and the plain textarea alone stays responsive. Conversion and formatting are unaffected.
+ */
+const MAX_HIGHLIGHT_CHARS = 20_000
+
+/**
  * Renders SQL as coloured spans. A trailing newline needs a following character or the
  * browser collapses the last line, which would put the highlight layer one line out of
  * step with the textarea above it.
@@ -24,9 +31,7 @@ interface SqlEditorProps {
   ariaLabel: string
 }
 
-/**
- * Read-only SQL display. No textarea involved, so this is just a coloured <pre>.
- */
+/** Read-only SQL display. No textarea involved, so this is just a coloured <pre>. */
 export function SqlView({ value, placeholder, ariaLabel }: {
   value: string
   placeholder: string
@@ -34,6 +39,9 @@ export function SqlView({ value, placeholder, ariaLabel }: {
 }) {
   if (!value) {
     return <div className="editor editor-empty">{placeholder}</div>
+  }
+  if (value.length > MAX_HIGHLIGHT_CHARS) {
+    return <pre className="editor editor-view" tabIndex={0} aria-label={ariaLabel}>{value}</pre>
   }
   return (
     <pre className="editor editor-view" tabIndex={0} aria-label={ariaLabel}>
@@ -65,26 +73,34 @@ export function SqlInput({
 }) {
   const layerRef = useRef<HTMLPreElement>(null)
 
+  const textarea = (
+    <textarea
+      className="editor editor-input"
+      value={value}
+      onChange={e => onChange(e.target.value)}
+      onKeyDown={onKeyDown}
+      onScroll={e => {
+        const layer = layerRef.current
+        if (!layer) return
+        layer.scrollTop = e.currentTarget.scrollTop
+        layer.scrollLeft = e.currentTarget.scrollLeft
+      }}
+      spellCheck={false}
+      placeholder={placeholder}
+      aria-label={ariaLabel}
+    />
+  )
+
+  if (value.length > MAX_HIGHLIGHT_CHARS) {
+    return <div className="editor-stack editor-stack-plain">{textarea}</div>
+  }
+
   return (
     <div className="editor-stack">
       <pre className="editor editor-layer" aria-hidden="true" ref={layerRef}>
         <Highlighted sql={value} />
       </pre>
-      <textarea
-        className="editor editor-input"
-        value={value}
-        onChange={e => onChange(e.target.value)}
-        onKeyDown={onKeyDown}
-        onScroll={e => {
-          const layer = layerRef.current
-          if (!layer) return
-          layer.scrollTop = e.currentTarget.scrollTop
-          layer.scrollLeft = e.currentTarget.scrollLeft
-        }}
-        spellCheck={false}
-        placeholder={placeholder}
-        aria-label={ariaLabel}
-      />
+      {textarea}
     </div>
   )
 }

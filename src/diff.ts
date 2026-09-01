@@ -99,22 +99,39 @@ function diffTokens(before: string, after: string): { before: DiffPiece[]; after
   return { before: mergePieces(before$), after: mergePieces(after$) }
 }
 
-export function diffSql(before: string, after: string): SqlDiff {
-  try {
-    return computeDiff(before, after)
-  } catch {
-    // Degrade to a plain two-block diff rather than breaking the Diff view.
-    if (before === after) {
-      return { rows: before.split('\n').map(text => ({ kind: 'context' as const, text })), changed: 0 }
-    }
-    return {
-      rows: [
-        ...before.split('\n').map(line => ({ kind: 'del' as const, before: [{ text: line, mark: 'del' as const }] })),
-        ...after.split('\n').map(line => ({ kind: 'add' as const, after: [{ text: line, mark: 'add' as const }] })),
-      ],
-      changed: before.split('\n').length + after.split('\n').length,
-    }
+/**
+ * The line-level LCS is O(n·m) in time and memory. Past this many lines a side, the table
+ * gets large enough to stutter, so fall back to the plain two-block view instead.
+ */
+const MAX_DIFF_LINES = 3000
+
+function blockDiff(before: string, after: string): SqlDiff {
+  if (before === after) {
+    return { rows: before.split('\n').map(text => ({ kind: 'context' as const, text })), changed: 0 }
   }
+  return {
+    rows: [
+      ...before.split('\n').map(line => ({ kind: 'del' as const, before: [{ text: line, mark: 'del' as const }] })),
+      ...after.split('\n').map(line => ({ kind: 'add' as const, after: [{ text: line, mark: 'add' as const }] })),
+    ],
+    changed: before.split('\n').length + after.split('\n').length,
+  }
+}
+
+export function diffSql(before: string, after: string): SqlDiff {
+  if (before.length + after.length > 400_000) return blockDiff(before, after)
+  try {
+    const ops = countLines(before) > MAX_DIFF_LINES || countLines(after) > MAX_DIFF_LINES
+    return ops ? blockDiff(before, after) : computeDiff(before, after)
+  } catch {
+    return blockDiff(before, after)
+  }
+}
+
+function countLines(s: string): number {
+  let n = 1
+  for (let i = 0; i < s.length; i++) if (s.charCodeAt(i) === 10) n++
+  return n
 }
 
 function computeDiff(before: string, after: string): SqlDiff {
