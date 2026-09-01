@@ -1,9 +1,9 @@
 .idea/
-__pycache__/
-*.pyc
 node_modules/
 dist/
-target/
-*.class
-*.jar
+dist-single/
+*.local
 *.log
+*.tsbuildinfo
+__pycache__/
+*.pyc
