@@ -100,6 +100,24 @@ function diffTokens(before: string, after: string): { before: DiffPiece[]; after
 }
 
 export function diffSql(before: string, after: string): SqlDiff {
+  try {
+    return computeDiff(before, after)
+  } catch {
+    // Degrade to a plain two-block diff rather than breaking the Diff view.
+    if (before === after) {
+      return { rows: before.split('\n').map(text => ({ kind: 'context' as const, text })), changed: 0 }
+    }
+    return {
+      rows: [
+        ...before.split('\n').map(line => ({ kind: 'del' as const, before: [{ text: line, mark: 'del' as const }] })),
+        ...after.split('\n').map(line => ({ kind: 'add' as const, after: [{ text: line, mark: 'add' as const }] })),
+      ],
+      changed: before.split('\n').length + after.split('\n').length,
+    }
+  }
+}
+
+function computeDiff(before: string, after: string): SqlDiff {
   const ops = lcsDiff(before.split('\n'), after.split('\n'))
   const rows: DiffRow[] = []
   let changed = 0

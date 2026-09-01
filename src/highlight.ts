@@ -57,8 +57,21 @@ const SCANNER = new RegExp(
   'g',
 )
 
-/** Split SQL into display tokens. Concatenating every `text` reproduces the input exactly. */
+/**
+ * Split SQL into display tokens. Concatenating every `text` reproduces the input exactly.
+ *
+ * This runs on every keystroke, so it must not throw: any failure degrades to one plain
+ * token (uncoloured but correct text) rather than taking down the editor.
+ */
 export function tokenize(sql: string): Token[] {
+  try {
+    return scan(sql)
+  } catch {
+    return sql ? [{ text: sql, kind: 'plain' }] : []
+  }
+}
+
+function scan(sql: string): Token[] {
   const tokens: Token[] = []
   let lastEnd = 0
 
