@@ -5,6 +5,60 @@ what now does. Newest first.
 
 ---
 
+## RCA-007 — Every rewrite pass ran over string literals and comments unmasked
+
+- **Found:** 2026-09-02, scoping the fix for the external audit's string-literal finding
+  (it only reported literals; comments turned out to have the identical bug).
+- **Severity:** high — silently changes what a query returns (a literal) or what a note
+  says (a comment), with no warning either way.
+
+**Symptom.** Every keyword/function rewrite is a bare `String.replace(/…/gi, …)` over
+the whole statement text, with no idea whether a match sits inside a string literal or a
+comment:
+
+```
+o2m  SELECT 'use NVL(x,0) and ROWNUM here' AS tip FROM dual
+     -> SELECT 'use IFNULL(x,0) and ROWNUM here' AS tip        -- literal corrupted, changes query output
+
+o2m  -- NVL(a,b) and SYSDATE in a comment
+     SELECT a FROM t
+     -> -- IFNULL(a,b) and NOW() in a comment                  -- comment corrupted too (not just literals)
+        SELECT a FROM t
+```
+
+No warning fired in either case.
+
+**Root cause.** The regex pipeline has never distinguished "real SQL" from "text that
+happens to sit inside a string or a comment" — it operates on raw characters, not tokens.
+
+**Fix.** `src/converters/mask.ts`: before the ordered passes run, every single-quoted
+string literal (respecting `''` escapes) and every `--`/`/* */` comment is replaced with
+an opaque placeholder built from a NUL character (never a real word character, so every
+`\b`-bounded pattern treats it as absent). `restore()` puts the original text back
+verbatim right before the DDL-only `applyTypeMap` step.
+
+Two passes are the deliberate exception and run on the **unmasked** text first:
+- `TO_CHAR`/`TO_DATE` (`replaceToChar`/`replaceToDate`, oracle→mysql) rewrite the format
+  mask's own quoted content (`YYYY`→`%Y`) — they need to see the real string.
+- The `||`-chain-to-`CONCAT` rewrite (`replaceConcat`, oracle→mysql) needs to see an
+  actual quote to recognise a literal segment of the chain (`id || '-' || name`).
+
+Both were reordered to run before masking instead of at their old position mid-pipeline;
+verified behavior-preserving by inspection (neither depends on any earlier pass having
+already run) and by the full existing test suite staying green with no output changes.
+
+**Why tests missed it.** Every converter test used identifiers and bare values as
+"data" — nothing exercised a string literal or comment whose *content* happened to look
+like SQL.
+
+**How we catch it now.** `src/converters/mask.test.ts` (the masking primitive in
+isolation: literals, `''` escapes, line/block comments, multiple spans, unterminated
+input) and a new `converters.test.ts` group, "string literals and comments are protected
+from rewrites" (both directions, plus the two unmasked-exception passes still working,
+plus a query mixing a protected literal with real rewrites elsewhere).
+
+---
+
 ## RCA-006 — Type mapping fired on ordinary columns, not just DDL
 
 - **Found:** 2026-09-02, triaging an external audit that downloaded the deployed bundle

@@ -1,5 +1,6 @@
 import type { Converter, StatementConversion } from './types'
 import { applyTypeMap, isDdlStatement } from './types'
+import { maskLiteralsAndComments } from './mask'
 
 /**
  * Constructs we refuse to convert. Matching any of these returns the original SQL with a
@@ -156,6 +157,18 @@ export const oracleToMysql: Converter = {
     // gets stranded mid-query once a later pass rewrites the clause in front of it.
     let s = sql.replace(/[;\s]+$/, '')
 
+    // These two read real quoted text before it's hidden below: TO_CHAR/TO_DATE rewrite
+    // the format mask's own content, and the `||` chain detector needs to see an actual
+    // quote to recognise a literal segment of the chain.
+    s = replaceToChar(s, warnings)
+    s = replaceToDate(s, warnings)
+    s = replaceConcat(s)
+
+    // Hide string literals and comments so nothing below mistakes user data or a note
+    // for real SQL (RCA-006 / RCA-007) — restored verbatim just before returning.
+    const { masked, restore } = maskLiteralsAndComments(s)
+    s = masked
+
     s = s.replace(/\bFROM\s+DUAL\b/gi, '').trim()
 
     // Identifier quoting: "ident" -> `ident`
@@ -220,8 +233,6 @@ export const oracleToMysql: Converter = {
     s = s.replace(/\bSYSTIMESTAMP\b/gi, 'NOW(6)')
     s = s.replace(/\bCURRENT_DATE\b(?!\s*\()/gi, 'CURDATE()')
 
-    s = replaceToChar(s, warnings)
-    s = replaceToDate(s, warnings)
     s = s.replace(/\bTO_TIMESTAMP\s*\(/gi, 'STR_TO_DATE(')
 
     // Captured arguments are trimmed — the char classes below happily absorb the space
@@ -237,7 +248,6 @@ export const oracleToMysql: Converter = {
 
     s = s.replace(/\bSYS_GUID\s*\(\s*\)/gi, 'UUID()')
     s = replaceLengthWithCharLength(s, warnings)
-    s = replaceConcat(s)
 
     // ── joins: Oracle (+) outer join syntax -> LEFT JOIN ──
     s = s.replace(
@@ -253,6 +263,8 @@ export const oracleToMysql: Converter = {
 
     // MySQL has no NULLS FIRST/LAST.
     s = s.replace(/\bNULLS\s+(?:FIRST|LAST)\b/gi, '').trim()
+
+    s = restore(s)
 
     // Gated to DDL: a bare word match can't tell a column type from a column or alias
     // that happens to share a type's name (`number`, `float`, `raw`, `long` are common

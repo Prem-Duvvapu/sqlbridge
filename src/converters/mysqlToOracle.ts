@@ -1,5 +1,6 @@
 import type { Converter, StatementConversion } from './types'
 import { applyTypeMap, isDdlStatement } from './types'
+import { maskLiteralsAndComments } from './mask'
 
 /**
  * Constructs we won't translate to Oracle — procedural code needs a manual rewrite, not
@@ -94,6 +95,11 @@ export const mysqlToOracle: Converter = {
     // gets stranded mid-query once the LIMIT pass rewrites the clause in front of it.
     let s = sql.replace(/[;\s]+$/, '')
 
+    // Hide string literals and comments so nothing below mistakes user data or a note
+    // for real SQL (RCA-006 / RCA-007) — restored verbatim before the DDL-only passes.
+    const { masked, restore } = maskLiteralsAndComments(s)
+    s = masked
+
     // Identifier quoting: `ident` -> "ident"
     s = s.replace(/`([^`]+)`/g, '"$1"')
 
@@ -136,6 +142,8 @@ export const mysqlToOracle: Converter = {
     if (/\bTIMESTAMPDIFF\s*\(/i.test(s)) {
       warnings.push('TIMESTAMPDIFF detected — check conversion (e.g. MONTHS_BETWEEN for MONTH)')
     }
+
+    s = restore(s)
 
     // Gated to DDL: a bare word match can't tell a column type from a column or alias
     // that happens to share a type's name (`year`, `binary`, `int` are common identifiers).

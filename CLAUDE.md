@@ -90,6 +90,14 @@ until the Java converters were ported to TypeScript and moved into the browser (
 Each `convert()` applies an **ordered** sequence of `String.replace(/…/gi, …)` passes to
 the raw SQL. Conventions that will bite you if ignored:
 
+- **String literals and comments are masked first** (`src/converters/mask.ts`), so a
+  keyword or function name inside one — user data, a note to a colleague — isn't mistaken
+  for real SQL (RCA-006 / RCA-007). Placeholders are restored right before the DDL-only
+  `applyTypeMap` step. Two passes are the deliberate exception and run on the *unmasked*
+  text first: `TO_CHAR`/`TO_DATE` (they rewrite the format string's own content) and the
+  `||`-chain-to-`CONCAT` rewrite (it needs a real quote to recognise a literal segment). A
+  new rewrite that needs to read inside a string literal belongs in that unmasked group,
+  not after masking.
 - **Order is load-bearing.** `TRUNC(SYSDATE)` before bare `SYSDATE`; pagination before
   function rewrites; `OFFSET…FETCH` before standalone `FETCH`. Slot a new pass into the
   right place and run the tests.
