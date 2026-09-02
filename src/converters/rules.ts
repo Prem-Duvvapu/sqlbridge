@@ -193,6 +193,7 @@ const MESSAGE_TO_RULE: ReadonlyArray<readonly [string, Rule]> = [
   ['Converted LISTAGG', RULES.listaggToGroupConcat],
   ['Converted CONCAT()', RULES.concatToConcatPipe],
   ['Converted LENGTH', RULES.lengthToCharLength],
+  ['Converted SYSDATE', RULES.sysdateToNow],
   ['Converted TO_CHAR', RULES.toCharToDateFormat],
   ['Converted TO_DATE', RULES.toDateToStrToDate],
   ['Added alias for subquery', RULES.subqueryAlias],

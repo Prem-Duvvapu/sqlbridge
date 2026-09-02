@@ -11,6 +11,8 @@ import { DropOverlay, useFileImport } from './FileDrop'
 import { downloadText, suggestedFilename } from './fileTransfer'
 import { buildShareUrl, clearShareToken, decodeShare, encodeShare, readShareToken } from './share'
 import { splitStatements } from './sql/split'
+import { roundTrip, type RoundTripResult } from './roundTrip'
+import { RoundTripPanel } from './RoundTripPanel'
 import './App.css'
 
 interface Sample {
@@ -82,6 +84,7 @@ function App() {
   const [shareCopied, setShareCopied] = useState(false)
   const [notice, setNotice] = useState<string | null>(null)
   const [view, setView] = useState<'split' | 'diff'>('split')
+  const [roundTripResult, setRoundTripResult] = useState<RoundTripResult | null>(null)
 
   const copyTimer = useRef<number | undefined>(undefined)
   const shareTimer = useRef<number | undefined>(undefined)
@@ -96,6 +99,7 @@ function App() {
       setNotice(null)
       setCopied(false)
       setView('split')
+      setRoundTripResult(null)
     },
     onError: setNotice,
   })
@@ -133,6 +137,7 @@ function App() {
       setWarnings(result.warnings)
       setNotes(result.notes)
       setBlockedReason(result.blocked?.reason ?? null)
+      setRoundTripResult(null)
     })
     return () => { cancelled = true }
   }, [shareToken])
@@ -165,6 +170,7 @@ function App() {
     setNotes(result.notes)
     setBlockedReason(result.blocked?.reason ?? null)
     setCopied(false)
+    setRoundTripResult(null)
   }, [canConvert, input, source, target])
 
   function swapDirection() {
@@ -176,6 +182,11 @@ function App() {
     setNotes([])
     setBlockedReason(null)
     setNotice(null)
+    setRoundTripResult(null)
+  }
+
+  function checkRoundTrip() {
+    setRoundTripResult(roundTrip(input, source, target))
   }
 
   function copyOutput() {
@@ -223,6 +234,7 @@ function App() {
     setNotice(null)
     setCopied(false)
     setView('split')
+    setRoundTripResult(null)
   }
 
   async function shareLink() {
@@ -255,6 +267,7 @@ function App() {
     setBlockedReason(result.blocked?.reason ?? null)
     setNotice(null)
     setCopied(false)
+    setRoundTripResult(null)
   }
 
   function handleKeyDown(e: React.KeyboardEvent) {
@@ -388,6 +401,15 @@ function App() {
           >
             {shareCopied ? 'Link copied' : 'Share'}
           </button>
+          <button
+            type="button"
+            className="ghost-button ghost-button-sm"
+            onClick={checkRoundTrip}
+            disabled={!canDiff}
+            title="Translate back and compare against the original"
+          >
+            Check round-trip
+          </button>
         </div>
         <div className="view-switch" role="group" aria-label="View">
           <button
@@ -491,6 +513,15 @@ function App() {
           )}
         </section>
       </main>
+      )}
+
+      {roundTripResult && (
+        <RoundTripPanel
+          result={roundTripResult}
+          sourceLabel={labelFor(source)}
+          targetLabel={labelFor(target)}
+          onClose={() => setRoundTripResult(null)}
+        />
       )}
 
       {warnings.length > 0 && (() => {
