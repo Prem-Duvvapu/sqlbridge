@@ -273,7 +273,7 @@ splitter.
 ## Correctness hardening (from the 2026-09-02 audit)
 
 An external audit downloaded the deployed bundle and ran adversarial cases against the
-real converter (see RCA-006). Two classes are done; one is not scheduled.
+real converter (see RCA-006). Three classes are done; one is not scheduled.
 
 - ✅ **DDL type mapping firing on ordinary columns** (RCA-006).
 - ✅ **String literals and comments weren't masked before rewrites ran** (RCA-007).
@@ -285,10 +285,12 @@ real converter (see RCA-006). Two classes are done; one is not scheduled.
   on the unmasked text first, since they need to read a real quoted string. This did
   **not** require the tokenizer the audit suggested — masking two categories of span was
   enough, and it kept the diff to the two converters plus one new module.
-- **Not scheduled: date arithmetic.** `SYSDATE - 7` → `NOW() - 7` coerces the datetime to
-  a number in MySQL instead of subtracting a day. Needs `SYSDATE\s*([+-])\s*(\d+)` →
-  `NOW() ± INTERVAL n DAY` (and the reverse), ordered carefully against the existing
-  `TRUNC(SYSDATE)` / bare-`SYSDATE` passes.
+- ✅ **Date arithmetic** (RCA-008). `SYSDATE - 7` → `NOW() - 7` coerced the datetime to a
+  plain number instead of subtracting a day. `SYSDATE ± n` and `TRUNC(SYSDATE) ± n` now
+  become `NOW() ± INTERVAL n DAY` / `DATE(NOW()) ± INTERVAL n DAY`, ordered ahead of the
+  bare-`SYSDATE`/`TRUNC(SYSDATE)` passes. The reverse converter also learned to quote a
+  bare inline `INTERVAL n unit` for Oracle, so round-tripping the new shape produces valid
+  (if lossy — tagged `roundTripLossy`) SQL instead of an invalid unquoted interval.
 - **Not scheduled: `ROWNUM <= n` combined with `ORDER BY`** changes the result set, not
   just the syntax (Oracle caps before sorting; `LIMIT` after `ORDER BY` caps after) —
   currently flagged only `info`. Worth a `caution`-severity rule specifically for that

@@ -115,6 +115,13 @@ export const RULES = define({
     severity: 'info',
     roundTripLossy: true,
   },
+  sysdateArithmeticToInterval: {
+    id: 'sysdate-arithmetic-to-interval',
+    title: 'SYSDATE ± n → NOW() ± INTERVAL n DAY',
+    detail: 'Oracle treats DATE ± n as n days. MySQL treats it as plain number subtraction on the underlying value — without INTERVAL, the predicate silently stops meaning what it looks like it means.',
+    severity: 'caution',
+    roundTripLossy: true,
+  },
   toCharToDateFormat: {
     id: 'to-char-to-date-format',
     title: 'TO_CHAR(date) → DATE_FORMAT',
@@ -193,6 +200,7 @@ const MESSAGE_TO_RULE: ReadonlyArray<readonly [string, Rule]> = [
   ['Converted LISTAGG', RULES.listaggToGroupConcat],
   ['Converted CONCAT()', RULES.concatToConcatPipe],
   ['Converted LENGTH', RULES.lengthToCharLength],
+  ['Converted SYSDATE date arithmetic', RULES.sysdateArithmeticToInterval],
   ['Converted SYSDATE', RULES.sysdateToNow],
   ['Converted TO_CHAR', RULES.toCharToDateFormat],
   ['Converted TO_DATE', RULES.toDateToStrToDate],

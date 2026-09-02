@@ -132,6 +132,11 @@ export const mysqlToOracle: Converter = {
 
     s = s.replace(/\bDATE_ADD\s*\(([^,]+),\s*INTERVAL\s+(\d+)\s+(\w+)\)/gi,
       (_m, date: string, n: string, unit: string) => `${date.trim()} + INTERVAL '${n}' ${unit}`)
+    // MySQL's inline `expr ± INTERVAL n unit` uses a bare numeral; Oracle's INTERVAL
+    // literal requires it quoted. Only matches a bare digit — already-quoted intervals
+    // (from the DATE_ADD rewrite just above) aren't touched.
+    s = s.replace(/\bINTERVAL\s+(\d+(?:\.\d+)?)\s+(\w+)\b/gi,
+      (_m, n: string, unit: string) => `INTERVAL '${n}' ${unit}`)
     s = s.replace(/\bTRUNCATE\s*\(/gi, 'TRUNC(')
     // Arguments are trimmed: `[^,]+` absorbs the space after the comma.
     s = s.replace(/\bDATEDIFF\s*\(([^,]+),([^)]+)\)/gi,
