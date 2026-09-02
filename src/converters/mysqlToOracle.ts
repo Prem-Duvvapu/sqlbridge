@@ -1,5 +1,5 @@
 import type { Converter, StatementConversion } from './types'
-import { applyTypeMap } from './types'
+import { applyTypeMap, isDdlStatement } from './types'
 
 /**
  * Constructs we won't translate to Oracle — procedural code needs a manual rewrite, not
@@ -14,6 +14,7 @@ const TYPE_MAP: ReadonlyArray<readonly [string, string]> = [
   ['LONGTEXT', 'CLOB'],
   ['MEDIUMTEXT', 'CLOB'],
   ['TINYTEXT', 'VARCHAR2(255)'],
+  ['TEXT', 'CLOB'],
   ['LONGBLOB', 'BLOB'],
   ['MEDIUMBLOB', 'BLOB'],
   ['TINYBLOB', 'RAW(255)'],
@@ -136,7 +137,9 @@ export const mysqlToOracle: Converter = {
       warnings.push('TIMESTAMPDIFF detected — check conversion (e.g. MONTHS_BETWEEN for MONTH)')
     }
 
-    s = applyTypeMap(s, TYPE_MAP)
+    // Gated to DDL: a bare word match can't tell a column type from a column or alias
+    // that happens to share a type's name (`year`, `binary`, `int` are common identifiers).
+    if (isDdlStatement(sql)) s = applyTypeMap(s, TYPE_MAP)
     s = replaceMultiRowInsert(s, warnings)
     s = addDualIfNeeded(s)
 

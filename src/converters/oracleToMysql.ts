@@ -1,5 +1,5 @@
 import type { Converter, StatementConversion } from './types'
-import { applyTypeMap } from './types'
+import { applyTypeMap, isDdlStatement } from './types'
 
 /**
  * Constructs we refuse to convert. Matching any of these returns the original SQL with a
@@ -254,7 +254,10 @@ export const oracleToMysql: Converter = {
     // MySQL has no NULLS FIRST/LAST.
     s = s.replace(/\bNULLS\s+(?:FIRST|LAST)\b/gi, '').trim()
 
-    s = applyTypeMap(s, TYPE_MAP)
+    // Gated to DDL: a bare word match can't tell a column type from a column or alias
+    // that happens to share a type's name (`number`, `float`, `raw`, `long` are common
+    // identifiers).
+    if (isDdlStatement(sql)) s = applyTypeMap(s, TYPE_MAP)
 
     return { output: s.trim(), warnings }
   },

@@ -65,11 +65,33 @@ export function escapeRegExp(s: string): string {
 /**
  * Apply an ordered map of type names to their replacements, matching whole words only.
  * Order is significant: earlier keys can be substrings of later ones.
+ *
+ * When the replacement already carries its own precision (`TINYINT` → `NUMBER(3)`), a
+ * `(n)` / `(n,m)` following the source type is a display width or precision the source
+ * dialect no longer needs — dropped so it doesn't strand a second parenthesized group
+ * (`TINYINT(1)` must become `NUMBER(3)`, not `NUMBER(3)(1)`). When the replacement has no
+ * precision of its own (`DECIMAL` → `NUMBER`), the source's `(n[,m])` is left in place —
+ * that's the target's precision now (`DECIMAL(10,2)` → `NUMBER(10,2)`).
+ *
+ * Callers must gate this to DDL statements (see `isDdlStatement`) — a bare word match
+ * has no idea whether it landed on a type name or a column/alias that happens to share
+ * one (`year`, `float`, `binary`, `number` are all common identifiers).
  */
 export function applyTypeMap(sql: string, typeMap: ReadonlyArray<readonly [string, string]>): string {
   let s = sql
   for (const [from, to] of typeMap) {
-    s = s.replace(new RegExp(`\\b${escapeRegExp(from)}\\b`, 'gi'), to)
+    const pattern = /\(/.test(to)
+      ? new RegExp(`\\b${escapeRegExp(from)}\\b(?:\\s*\\([^()]*\\))?`, 'gi')
+      : new RegExp(`\\b${escapeRegExp(from)}\\b`, 'gi')
+    s = s.replace(pattern, to)
   }
   return s
+}
+
+/**
+ * Whether a statement is DDL that declares column types (`CREATE TABLE`, `ALTER TABLE`),
+ * as opposed to DML that merely mentions a word that happens to also be a type name.
+ */
+export function isDdlStatement(sql: string): boolean {
+  return /^\s*(?:CREATE|ALTER)\s+(?:GLOBAL\s+TEMPORARY\s+)?TABLE\b/i.test(sql)
 }

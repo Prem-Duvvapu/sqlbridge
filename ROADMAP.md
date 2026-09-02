@@ -248,6 +248,8 @@ New rules authored in the catalogue shape, with tests per row:
 | `UNSIGNED` | widen the type + flag |
 | `ON UPDATE CURRENT_TIMESTAMP` | flag — needs a trigger in Oracle |
 | `ENUM(…)` | `VARCHAR2(n)` + `CHECK` constraint |
+| — | `AUTO_INCREMENT` alone, no equivalent yet emitted — flag (RCA-006) |
+| nested `DECODE` / nested `ROWNUM` pagination that half-applies | `blocked`, not broken output — the rules exist but currently mis-fire (RCA-006 audit) |
 
 `COMMENT ON` folding reads one statement and edits another, which is why it needs the
 splitter.
@@ -265,6 +267,41 @@ splitter.
 - UI: a **Check round-trip** button that expands a panel with the summary and diff.
   Unavailable (disabled, with a reason) when no reverse converter is registered.
 - **Files:** `src/roundTrip.ts` (+ test), `src/RoundTripPanel.tsx`, `src/App.tsx`.
+
+---
+
+## Correctness hardening (from the 2026-09-02 audit)
+
+An external audit downloaded the deployed bundle and ran adversarial cases against the
+real converter (see RCA-006). One class was contained enough to fix immediately — DDL
+type mapping firing on ordinary columns — and is done. Two classes are not contained:
+fixing them properly means changing the order every rule runs in, in both converters,
+so they're tracked here rather than patched piecemeal.
+
+- **String literals and comments aren't masked before rewrites run.**
+  `SELECT 'use NVL(x,0) here'` rewrites the keyword *inside the string*; the same is true
+  of `-- NVL(a,b)` in a comment. Every keyword/function pass is a bare
+  `String.replace(/…/gi, …)` over the whole statement text, so anything that looks like a
+  keyword gets rewritten regardless of where it sits.
+  - The fix is **not** "mask every string literal, always" — `TO_CHAR`/`TO_DATE`'s format
+    mask *is* a quoted string that legitimately needs token-by-token translation
+    (`YYYY`→`%Y`), and that pass currently reads it directly. A real fix has to either:
+    run the format-mask passes first, then mask remaining literals/comments before every
+    other pass and restore them at the end; or move to a real tokenizer (this is the same
+    tokenizer the audit and the original Explain-mode plan for feature 4 both point at).
+  - Risk: touches pass ordering for every rule in both converters. The 73+ converter
+    tests are the regression net, but this needs its own careful pass, not a bolt-on.
+- **Date arithmetic**: `SYSDATE - 7` → `NOW() - 7` coerces the datetime to a number in
+  MySQL instead of subtracting a day. Needs `SYSDATE\s*([+-])\s*(\d+)` → `NOW() ± INTERVAL
+  n DAY` (and the reverse), ordered carefully against the existing `TRUNC(SYSDATE)` /
+  bare-`SYSDATE` passes.
+- **`ROWNUM <= n` combined with `ORDER BY`** changes the result set, not just the syntax
+  (Oracle caps before sorting; `LIMIT` after `ORDER BY` caps after) — currently flagged
+  only `info`. Worth a `caution`-severity rule specifically for that combination.
+
+Not scheduled yet — call out explicitly before starting, since the string/comment
+masking item changes a documented architectural invariant (CLAUDE.md: "Each `convert()`
+applies an ordered sequence of `String.replace()` passes to the raw SQL").
 
 ---
 

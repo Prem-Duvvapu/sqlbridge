@@ -105,6 +105,12 @@ describe('Oracle → MySQL', () => {
     expect(o2m('SELECT * FROM "employees"').output).toBe('SELECT * FROM `employees`')
   })
 
+  it('does not treat a column or alias that shares a type name as a type', () => {
+    // NUMBER, RAW and LONG are all Oracle type names — and all common identifiers.
+    expect(o2m('SELECT number, raw, long FROM t').output).toBe('SELECT number, raw, long FROM t')
+    expect(o2m('SELECT a AS float FROM t').output).toBe('SELECT a AS float FROM t')
+  })
+
   it('drops NULLS LAST', () => {
     expect(o2m('SELECT * FROM emp ORDER BY name NULLS LAST').output)
       .toBe('SELECT * FROM emp ORDER BY name')
@@ -221,6 +227,24 @@ describe('MySQL → Oracle', () => {
 
   it('maps TINYINT to NUMBER(3)', () => {
     expect(m2o('CREATE TABLE t (id TINYINT)').output).toBe('CREATE TABLE t (id NUMBER(3))')
+  })
+
+  it('drops a source display width when the target already has its own precision', () => {
+    // TINYINT(1) must become NUMBER(3), not the invalid NUMBER(3)(1).
+    expect(m2o('CREATE TABLE t (flag TINYINT(1) DEFAULT 0)').output)
+      .toBe('CREATE TABLE t (flag NUMBER(3) DEFAULT 0)')
+    expect(m2o('CREATE TABLE t (id INT(11) NOT NULL)').output)
+      .toBe('CREATE TABLE t (id NUMBER(10) NOT NULL)')
+  })
+
+  it('maps TEXT to CLOB', () => {
+    expect(m2o('CREATE TABLE t (body TEXT)').output).toBe('CREATE TABLE t (body CLOB)')
+  })
+
+  it('does not treat a column or alias that shares a type name as a type', () => {
+    // YEAR is a MySQL type name — and a common column name.
+    expect(m2o('SELECT text, year FROM logs').output).toBe('SELECT text, year FROM logs')
+    expect(m2o('SELECT a AS year FROM t').output).toBe('SELECT a AS year FROM t')
   })
 
   it('converts backtick identifiers to double quotes', () => {
