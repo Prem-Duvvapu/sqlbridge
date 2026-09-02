@@ -29,6 +29,12 @@ export const RULES = define({
     detail: "Oracle caps rows with the ROWNUM pseudo-column in the WHERE clause; MySQL uses a trailing LIMIT. The row cap is preserved, but any ROWNUM used elsewhere in the query needs a manual look.",
     severity: 'info',
   },
+  rownumOrderByCaveat: {
+    id: 'rownum-order-by-caveat',
+    title: 'ROWNUM + ORDER BY',
+    detail: 'Oracle assigns ROWNUM as rows are fetched, before ORDER BY sorts them, so this query may not reliably return the top rows by that order. The converted LIMIT sorts first, so it can return a different — often more useful — row set. Check this matches what the query was meant to do.',
+    severity: 'caution',
+  },
   fetchToLimit: {
     id: 'fetch-to-limit',
     title: 'FETCH FIRST → LIMIT',
@@ -191,6 +197,7 @@ export type RuleKey = keyof typeof RULES
 /** Warning strings the converters push, mapped to their rule. */
 const MESSAGE_TO_RULE: ReadonlyArray<readonly [string, Rule]> = [
   ['Converted ROWNUM', RULES.rownumToLimit],
+  ['ROWNUM + ORDER BY', RULES.rownumOrderByCaveat],
   ['Converted FETCH FIRST', RULES.fetchToLimit],
   ['Converted OFFSET FETCH', RULES.offsetFetchToLimit],
   ['Converted LIMIT to OFFSET FETCH', RULES.limitToOffsetFetch],

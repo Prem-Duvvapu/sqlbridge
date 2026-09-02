@@ -273,7 +273,7 @@ splitter.
 ## Correctness hardening (from the 2026-09-02 audit)
 
 An external audit downloaded the deployed bundle and ran adversarial cases against the
-real converter (see RCA-006). Three classes are done; one is not scheduled.
+real converter (see RCA-006). All four classes it surfaced are done.
 
 - ✅ **DDL type mapping firing on ordinary columns** (RCA-006).
 - ✅ **String literals and comments weren't masked before rewrites ran** (RCA-007).
@@ -291,10 +291,11 @@ real converter (see RCA-006). Three classes are done; one is not scheduled.
   bare-`SYSDATE`/`TRUNC(SYSDATE)` passes. The reverse converter also learned to quote a
   bare inline `INTERVAL n unit` for Oracle, so round-tripping the new shape produces valid
   (if lossy — tagged `roundTripLossy`) SQL instead of an invalid unquoted interval.
-- **Not scheduled: `ROWNUM <= n` combined with `ORDER BY`** changes the result set, not
-  just the syntax (Oracle caps before sorting; `LIMIT` after `ORDER BY` caps after) —
-  currently flagged only `info`. Worth a `caution`-severity rule specifically for that
-  combination.
+- ✅ **`ROWNUM <= n` combined with `ORDER BY`** (RCA-009). Oracle caps rows before
+  sorting; the converted `LIMIT` sorts first — a different (often more useful, but not
+  guaranteed equivalent) row set. Not blocked, since the output is valid SQL: flagged with
+  a new `caution`-severity `rownumOrderByCaveat` note whenever `ORDER BY` accompanies any
+  of the three `ROWNUM`→`LIMIT` shapes.
 
 ---
 

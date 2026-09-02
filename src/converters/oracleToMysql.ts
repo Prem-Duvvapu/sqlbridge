@@ -175,10 +175,18 @@ export const oracleToMysql: Converter = {
     s = s.replace(/"([^"]+)"/g, '`$1`')
 
     // ── pagination ──
+    // Oracle assigns ROWNUM as rows are fetched, before ORDER BY sorts them — WHERE
+    // ROWNUM <= n ORDER BY x does not reliably return the top n rows by x. LIMIT sorts
+    // first, so the converted query can return a different (if more useful) row set.
+    const warnIfOrderBy = () => {
+      if (/\bORDER\s+BY\b/i.test(s)) warnings.push('ROWNUM + ORDER BY — check the result set matches')
+    }
+
     if (/WHERE\s+ROWNUM\s*=\s*1/i.test(s) && !s.toUpperCase().includes('LIMIT')) {
       s = s.replace(/WHERE\s+ROWNUM\s*=\s*1/gi, '')
       s = `${s.trim()} LIMIT 1`
       warnings.push('Converted ROWNUM = 1 to LIMIT 1')
+      warnIfOrderBy()
     }
 
     // ROWNUM <= n preceded by another condition — keep the condition, drop the ROWNUM.
@@ -189,6 +197,7 @@ export const oracleToMysql: Converter = {
       s = s.replace(withCond[0], keep)
       s = `${s.trim()} LIMIT ${withCond[2]}`
       warnings.push('Converted ROWNUM <= n to LIMIT')
+      warnIfOrderBy()
     }
 
     const standalone = /WHERE\s+ROWNUM\s*<=\s*(\d+)/i.exec(s)
@@ -196,6 +205,7 @@ export const oracleToMysql: Converter = {
       s = s.replace(standalone[0], '')
       s = `${s.trim()} LIMIT ${standalone[1]}`
       warnings.push('Converted ROWNUM <= n to LIMIT')
+      warnIfOrderBy()
     }
 
     // OFFSET…FETCH must be matched before the standalone FETCH pass, which would
