@@ -297,6 +297,50 @@ describe('MySQL → Oracle', () => {
   })
 })
 
+// RCA-006 (string literals) / RCA-007 (comments): a keyword or function name inside
+// user data or a note must not be rewritten — only real SQL is.
+describe('string literals and comments are protected from rewrites', () => {
+  it('leaves a keyword-shaped string literal untouched (o2m)', () => {
+    const r = o2m("SELECT 'use NVL(x,0) and ROWNUM here' AS tip FROM dual")
+    expect(r.output).toBe("SELECT 'use NVL(x,0) and ROWNUM here' AS tip")
+  })
+
+  it('respects a doubled quote escape inside the literal (o2m)', () => {
+    expect(o2m("SELECT 'it''s NVL(a,b)' FROM dual").output)
+      .toBe("SELECT 'it''s NVL(a,b)'")
+  })
+
+  it('leaves a keyword-shaped string literal untouched (m2o)', () => {
+    expect(m2o("SELECT 'IFNULL(a,b) NOW()' AS s FROM t").output)
+      .toBe("SELECT 'IFNULL(a,b) NOW()' AS s FROM t")
+  })
+
+  it('leaves keywords inside a line comment untouched', () => {
+    expect(o2m('-- NVL(a,b) and SYSDATE in a comment\nSELECT a FROM t').output)
+      .toBe('-- NVL(a,b) and SYSDATE in a comment\nSELECT a FROM t')
+  })
+
+  it('leaves keywords inside a block comment untouched', () => {
+    expect(o2m('/* SYSDATE NVL(x,y) */ SELECT a FROM t').output)
+      .toBe('/* SYSDATE NVL(x,y) */ SELECT a FROM t')
+  })
+
+  it('still translates the TO_CHAR format mask, which needs to read a real string', () => {
+    expect(o2m("SELECT TO_CHAR(hire_date,'YYYY-MM-DD') FROM emp").output)
+      .toBe("SELECT DATE_FORMAT(hire_date, '%Y-%m-%d') FROM emp")
+  })
+
+  it('still turns a `||` chain with a literal segment into CONCAT', () => {
+    expect(o2m("SELECT id || '-' || name FROM t").output)
+      .toBe("SELECT CONCAT(id, '-', name) FROM t")
+  })
+
+  it('handles a query mixing a protected literal with real rewrites elsewhere', () => {
+    const r = o2m("SELECT NVL(a, 0), 'call NVL first' AS note, SYSDATE FROM t WHERE ROWNUM <= 5")
+    expect(r.output).toBe("SELECT IFNULL(a, 0), 'call NVL first' AS note, NOW() FROM t LIMIT 5")
+  })
+})
+
 describe('registry', () => {
   it('routes a known pair to its converter', () => {
     expect(convert('SELECT * FROM emp WHERE ROWNUM = 1', 'oracle', 'mysql').output)

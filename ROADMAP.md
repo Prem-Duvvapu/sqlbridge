@@ -273,35 +273,26 @@ splitter.
 ## Correctness hardening (from the 2026-09-02 audit)
 
 An external audit downloaded the deployed bundle and ran adversarial cases against the
-real converter (see RCA-006). One class was contained enough to fix immediately — DDL
-type mapping firing on ordinary columns — and is done. Two classes are not contained:
-fixing them properly means changing the order every rule runs in, in both converters,
-so they're tracked here rather than patched piecemeal.
+real converter (see RCA-006). Two classes are done; one is not scheduled.
 
-- **String literals and comments aren't masked before rewrites run.**
-  `SELECT 'use NVL(x,0) here'` rewrites the keyword *inside the string*; the same is true
-  of `-- NVL(a,b)` in a comment. Every keyword/function pass is a bare
-  `String.replace(/…/gi, …)` over the whole statement text, so anything that looks like a
-  keyword gets rewritten regardless of where it sits.
-  - The fix is **not** "mask every string literal, always" — `TO_CHAR`/`TO_DATE`'s format
-    mask *is* a quoted string that legitimately needs token-by-token translation
-    (`YYYY`→`%Y`), and that pass currently reads it directly. A real fix has to either:
-    run the format-mask passes first, then mask remaining literals/comments before every
-    other pass and restore them at the end; or move to a real tokenizer (this is the same
-    tokenizer the audit and the original Explain-mode plan for feature 4 both point at).
-  - Risk: touches pass ordering for every rule in both converters. The 73+ converter
-    tests are the regression net, but this needs its own careful pass, not a bolt-on.
-- **Date arithmetic**: `SYSDATE - 7` → `NOW() - 7` coerces the datetime to a number in
-  MySQL instead of subtracting a day. Needs `SYSDATE\s*([+-])\s*(\d+)` → `NOW() ± INTERVAL
-  n DAY` (and the reverse), ordered carefully against the existing `TRUNC(SYSDATE)` /
-  bare-`SYSDATE` passes.
-- **`ROWNUM <= n` combined with `ORDER BY`** changes the result set, not just the syntax
-  (Oracle caps before sorting; `LIMIT` after `ORDER BY` caps after) — currently flagged
-  only `info`. Worth a `caution`-severity rule specifically for that combination.
-
-Not scheduled yet — call out explicitly before starting, since the string/comment
-masking item changes a documented architectural invariant (CLAUDE.md: "Each `convert()`
-applies an ordered sequence of `String.replace()` passes to the raw SQL").
+- ✅ **DDL type mapping firing on ordinary columns** (RCA-006).
+- ✅ **String literals and comments weren't masked before rewrites ran** (RCA-007).
+  `SELECT 'use NVL(x,0) here'` rewrote the keyword *inside the string*; `-- NVL(a,b)` in a
+  comment had the identical bug. Fixed in `src/converters/mask.ts`: every single-quoted
+  literal and `--`/`/* */` comment is masked out before the ordered passes run and
+  restored verbatim before the DDL-only type map. `TO_CHAR`/`TO_DATE` (format-mask
+  translation) and the `||`-chain-to-`CONCAT` rewrite are the deliberate exception and run
+  on the unmasked text first, since they need to read a real quoted string. This did
+  **not** require the tokenizer the audit suggested — masking two categories of span was
+  enough, and it kept the diff to the two converters plus one new module.
+- **Not scheduled: date arithmetic.** `SYSDATE - 7` → `NOW() - 7` coerces the datetime to
+  a number in MySQL instead of subtracting a day. Needs `SYSDATE\s*([+-])\s*(\d+)` →
+  `NOW() ± INTERVAL n DAY` (and the reverse), ordered carefully against the existing
+  `TRUNC(SYSDATE)` / bare-`SYSDATE` passes.
+- **Not scheduled: `ROWNUM <= n` combined with `ORDER BY`** changes the result set, not
+  just the syntax (Oracle caps before sorting; `LIMIT` after `ORDER BY` caps after) —
+  currently flagged only `info`. Worth a `caution`-severity rule specifically for that
+  combination.
 
 ---
 
