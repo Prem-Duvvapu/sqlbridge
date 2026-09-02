@@ -122,6 +122,12 @@ the raw SQL. Conventions that will bite you if ignored:
   LCS line diff, then a token diff (via `tokenize`) within each changed line pair, so
   only rewritten spans are tinted. Tested invariant: the pieces reconstruct both sides
   exactly. Never throws — degrades to a plain two-block diff.
+- `src/roundTrip.ts` + `src/RoundTripPanel.tsx` — the **Check round-trip** button.
+  Converts A→B→A and diffs the return against the original after normalizing whitespace
+  and keyword case. A signal, not a verdict: rules flagged `roundTripLossy` in the rule
+  catalogue are listed separately as expected-to-differ, so an *unexplained* diff is the
+  one worth looking at. A rule can only appear there if the converter that triggers it
+  actually pushes a warning — see RCA-005.
 - `src/ErrorBoundary.tsx` — wraps `<App/>` in `main.tsx`; recovery screen for anything
   the inline handlers didn't catch.
 - `src/FileDrop.tsx` + `src/fileTransfer.ts` — `useFileImport` puts drag listeners on

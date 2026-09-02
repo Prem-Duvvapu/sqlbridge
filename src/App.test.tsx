@@ -211,6 +211,47 @@ describe('App — persistence', () => {
   })
 })
 
+describe('App — round-trip', () => {
+  it('is disabled when there is no output to verify', async () => {
+    render(<App />)
+    await userEvent.click(screen.getByRole('button', { name: 'Clear' }))
+    expect(screen.getByRole('button', { name: /check round-trip/i })).toBeDisabled()
+  })
+
+  it('reports a clean round-trip', async () => {
+    render(<App />)
+    const input = editor(/oracle sql input/i)
+    await userEvent.clear(input)
+    await userEvent.type(input, 'SELECT NVL(salary, 0) FROM emp')
+    await userEvent.click(screen.getByRole('button', { name: /convert/i }))
+    await userEvent.click(screen.getByRole('button', { name: /check round-trip/i }))
+
+    const panel = screen.getByRole('region', { name: /round-trip check/i })
+    expect(within(panel).getByText(/clean round-trip/i)).toBeInTheDocument()
+  })
+
+  it('labels a known-lossy difference instead of just showing a diff', async () => {
+    render(<App />)
+    const input = editor(/oracle sql input/i)
+    await userEvent.clear(input)
+    await userEvent.type(input, 'SELECT SYSDATE FROM DUAL')
+    await userEvent.click(screen.getByRole('button', { name: /convert/i }))
+    await userEvent.click(screen.getByRole('button', { name: /check round-trip/i }))
+
+    const panel = screen.getByRole('region', { name: /round-trip check/i })
+    expect(within(panel).getByText(/differs only where expected/i)).toBeInTheDocument()
+    expect(within(panel).getByText('SYSDATE → NOW()')).toBeInTheDocument()
+  })
+
+  it('closes the panel', async () => {
+    render(<App />)
+    await userEvent.click(screen.getByRole('button', { name: /convert/i }))
+    await userEvent.click(screen.getByRole('button', { name: /check round-trip/i }))
+    await userEvent.click(within(screen.getByRole('region', { name: /round-trip check/i })).getByRole('button', { name: /close/i }))
+    expect(screen.queryByRole('region', { name: /round-trip check/i })).not.toBeInTheDocument()
+  })
+})
+
 vi.mock('./format', () => ({
   format: vi.fn(async (sql: string) => ({ sql: sql.toUpperCase() })),
 }))

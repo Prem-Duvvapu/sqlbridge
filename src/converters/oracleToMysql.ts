@@ -214,7 +214,9 @@ export const oracleToMysql: Converter = {
     s = s.replace(/\bTRUNC\s*\((SYSDATE|SYSTIMESTAMP|CURRENT_DATE|CURRENT_TIMESTAMP)\)/gi, 'DATE($1)')
     s = s.replace(/\bTRUNC\s*\((\w+(?:\.\w+)?)\)/gi, 'CAST($1 AS DATE)')
 
+    const beforeSysdate = s
     s = s.replace(/\bSYSDATE\b/gi, 'NOW()')
+    if (s !== beforeSysdate) warnings.push('Converted SYSDATE to NOW()')
     s = s.replace(/\bSYSTIMESTAMP\b/gi, 'NOW(6)')
     s = s.replace(/\bCURRENT_DATE\b(?!\s*\()/gi, 'CURDATE()')
 

@@ -4,11 +4,10 @@ Approved plan for the next round of work. Tick items off as each phase lands, th
 `MIGRATION.md` tracked the Spring Boot → React migration.
 
 **Status:** in progress. ✅ 1 (drag-drop), ✅ 2 (shareable URL), ✅ A + core of 3
-(splitter + multi-statement), ✅ B (rule catalogue). 🔨 6 (round-trip) —
-`src/roundTrip.ts` + `src/RoundTripPanel.tsx` landed but **inert** (not imported); next
-step is the App wiring (a "Check round-trip" button + panel state), CSS, and
-`roundTrip.test.ts`. Then: 5 (DDL depth), 4 (dedicated Explain view — optional, B already
-shows the "why"), 3's per-statement notes grouping.
+(splitter + multi-statement), ✅ B (rule catalogue), ✅ 6 (round-trip verify — "Check
+round-trip" button, panel, CSS, `roundTrip.test.ts`; see RCA-005 for a catalogue rule
+that was unreachable until this landed). Remaining: 5 (DDL depth), 4 (dedicated Explain
+view — optional, B already shows the "why"), 3's per-statement notes grouping.
 
 ## Context
 
@@ -255,7 +254,7 @@ splitter.
 
 - **Files:** `src/converters/rules.ts`, both converters, tests.
 
-### 6. Round-trip verify — *depends on B*
+### 6. Round-trip verify — ✅ done
 
 - `src/roundTrip.ts`: convert A→B, then B→A, and diff the return against the original
   (reusing `diffSql` from `src/diff.ts`).
