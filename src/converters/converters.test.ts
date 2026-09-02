@@ -92,6 +92,30 @@ describe('Oracle → MySQL', () => {
     expect(o2m('SELECT TRUNC(SYSDATE) FROM DUAL').output).toBe('SELECT DATE(NOW())')
   })
 
+  // RCA-008: Oracle DATE ± n means n days; MySQL treats the same shape as plain number
+  // subtraction on the underlying value unless it's wrapped in an explicit INTERVAL.
+  it('rewrites SYSDATE ± n to an explicit day INTERVAL', () => {
+    const r = o2m('SELECT * FROM t WHERE d > SYSDATE - 7')
+    expect(r.output).toBe('SELECT * FROM t WHERE d > NOW() - INTERVAL 7 DAY')
+    expect(warnsAbout(r, 'SYSDATE date arithmetic')).toBe(true)
+  })
+
+  it('rewrites TRUNC(SYSDATE) ± n to an explicit day INTERVAL', () => {
+    expect(o2m('SELECT * FROM t WHERE d >= TRUNC(SYSDATE) - 1').output)
+      .toBe('SELECT * FROM t WHERE d >= DATE(NOW()) - INTERVAL 1 DAY')
+  })
+
+  it('does not double-wrap SYSDATE arithmetic that already uses INTERVAL', () => {
+    expect(o2m("SELECT SYSDATE + INTERVAL '1' DAY FROM dual").output)
+      .toBe("SELECT NOW() + INTERVAL '1' DAY")
+  })
+
+  it('leaves bare SYSDATE (no arithmetic) converted as before', () => {
+    const r = o2m('SELECT SYSDATE FROM DUAL')
+    expect(r.output).toBe('SELECT NOW()')
+    expect(warnsAbout(r, 'SYSDATE date arithmetic')).toBe(false)
+  })
+
   it('rewrites SYS_GUID to UUID', () => {
     expect(o2m('SELECT SYS_GUID() FROM DUAL').output).toBe('SELECT UUID()')
   })
@@ -277,6 +301,12 @@ describe('MySQL → Oracle', () => {
   it('rewrites DATE_ADD to INTERVAL arithmetic', () => {
     expect(m2o('SELECT DATE_ADD(hire_date, INTERVAL 3 MONTH) FROM emp').output)
       .toBe("SELECT hire_date + INTERVAL '3' MONTH FROM emp")
+  })
+
+  it('quotes a bare inline INTERVAL numeral for Oracle', () => {
+    // MySQL's `expr ± INTERVAL n unit` is bare; Oracle's INTERVAL literal must be quoted.
+    expect(m2o('SELECT * FROM t WHERE d > NOW() - INTERVAL 7 DAY').output)
+      .toBe("SELECT * FROM t WHERE d > SYSTIMESTAMP - INTERVAL '7' DAY")
   })
 
   it('expands a multi-row INSERT into INSERT ALL', () => {

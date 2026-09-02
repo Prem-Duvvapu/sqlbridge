@@ -5,6 +5,56 @@ what now does. Newest first.
 
 ---
 
+## RCA-008 — `SYSDATE ± n` silently changed from date arithmetic to number arithmetic
+
+- **Found:** 2026-09-02, the last unscheduled item from the 2026-09-02 audit (RCA-006).
+- **Severity:** high — a predicate that looks unchanged quietly stops meaning what it
+  looks like it means; no warning fired.
+
+**Symptom.** Oracle `DATE ± n` means "n days earlier/later" — `SYSDATE - 7` is a
+week ago. MySQL has no such rule: subtracting a plain number from a datetime coerces it
+to a number first, so `NOW() - 7` is arithmetic on a numeric encoding of the timestamp,
+not a week-ago date. The old conversion produced exactly that:
+
+```
+SELECT * FROM t WHERE d > SYSDATE - 7
+  -> SELECT * FROM t WHERE d > NOW() - 7        -- no longer means "7 days ago"
+
+SELECT * FROM t WHERE d >= TRUNC(SYSDATE) - 1
+  -> SELECT * FROM t WHERE d >= DATE(NOW()) - 1  -- same bug, via the TRUNC(SYSDATE) path
+```
+
+**Root cause.** `\bSYSDATE\b` → `NOW()` is a pure name substitution with no notion of
+"this value is about to be used in date arithmetic" — the surrounding `± n` was never
+inspected, so the rewrite carried none of the semantics that made the original query
+correct.
+
+**Fix.** Two new passes in `oracleToMysql.ts`, run before the plain `SYSDATE`/
+`TRUNC(SYSDATE)` rewrites (so they see the literal `SYSDATE` text, not an already-opaque
+`NOW()`): `SYSDATE\s*([+-])\s*(\d+)` → `NOW() $1 INTERVAL $2 DAY`, and
+`TRUNC(SYSDATE)\s*([+-])\s*(\d+)` → `DATE(NOW()) $1 INTERVAL $2 DAY`. Both require a bare
+digit immediately after the operator, so `SYSDATE + INTERVAL '1' DAY` (already correct)
+is left alone rather than double-wrapped.
+
+This introduces a new output shape (`NOW() - INTERVAL 7 DAY`) that didn't exist before,
+so the reverse converter needed a companion fix or converting it back would produce
+invalid Oracle: MySQL's inline `expr ± INTERVAL n unit` uses a bare numeral, but Oracle's
+`INTERVAL` literal requires it quoted (`INTERVAL '7' DAY`). Added that quoting pass to
+`mysqlToOracle.ts` alongside the existing `DATE_ADD(...)`-specific one (which already
+produced the quoted form for that shape). New rule `sysdateArithmeticToInterval`,
+`roundTripLossy: true` — the returned Oracle text is `SYSTIMESTAMP - INTERVAL '7' DAY`,
+not byte-identical to the original `SYSDATE - 7`, but now valid and semantically
+equivalent, which is what the round-trip check is meant to distinguish.
+
+**Why tests missed it.** No test exercised `SYSDATE`/`TRUNC(SYSDATE)` followed by
+arithmetic — every existing SYSDATE test used it bare.
+
+**How we catch it now.** `converters.test.ts`: `SYSDATE ± n`, `TRUNC(SYSDATE) ± n`, the
+already-`INTERVAL` case left alone, bare `SYSDATE` still converting as before, and the
+`mysqlToOracle` quoting fix. `rules.test.ts` covers the new rule's warning mapping.
+
+---
+
 ## RCA-007 — Every rewrite pass ran over string literals and comments unmasked
 
 - **Found:** 2026-09-02, scoping the fix for the external audit's string-literal finding

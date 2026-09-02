@@ -31,6 +31,9 @@ describe('ruleForWarning', () => {
     expect(ruleForWarning('Converted ROWNUM = 1 to LIMIT 1')).toBe(RULES.rownumToLimit)
     expect(ruleForWarning('Converted DECODE to CASE')).toBe(RULES.decodeToCase)
     expect(ruleForWarning('LAST_DAY — MySQL 8.0+ has LAST_DAY(), check compatibility')).toBe(RULES.lastDayCompat)
+    expect(ruleForWarning('Converted SYSDATE date arithmetic to INTERVAL'))
+      .toBe(RULES.sysdateArithmeticToInterval)
+    expect(ruleForWarning('Converted SYSDATE to NOW()')).toBe(RULES.sysdateToNow)
   })
 
   it('maps a gate warning through its reason', () => {
@@ -54,6 +57,7 @@ describe('ruleForWarning', () => {
       'SELECT * FROM emp OFFSET 5 ROWS FETCH NEXT 3 ROWS ONLY',
       "SELECT TO_CHAR(d, 'YYYY-MM-DD') FROM t",
       "SELECT TO_DATE('x', 'YYYY') FROM t",
+      'SELECT * FROM t WHERE d > SYSDATE - 7',
     ]
     for (const sql of samples) {
       for (const w of oracleToMysql.convert(sql).warnings) {

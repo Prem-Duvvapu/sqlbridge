@@ -223,7 +223,19 @@ export const oracleToMysql: Converter = {
     )
     if (s.includes('GROUP_CONCAT')) warnings.push('Converted LISTAGG to GROUP_CONCAT')
 
-    // ── date/time ── TRUNC must run before SYSDATE, or its argument is already rewritten.
+    // ── date/time ──
+    // Oracle DATE ± n means n days; MySQL coerces the same shape to plain number
+    // subtraction on the underlying value, silently changing what the predicate means.
+    // These two must run before TRUNC(SYSDATE)/bare SYSDATE below turn the expression
+    // into an opaque NOW() that no longer carries the "this was a day count" signal.
+    const beforeDateArith = s
+    s = s.replace(/\bTRUNC\s*\(\s*SYSDATE\s*\)\s*([+-])\s*(\d+(?:\.\d+)?)\b/gi,
+      (_m, op: string, n: string) => `DATE(NOW()) ${op} INTERVAL ${n} DAY`)
+    s = s.replace(/\bSYSDATE\s*([+-])\s*(\d+(?:\.\d+)?)\b/gi,
+      (_m, op: string, n: string) => `NOW() ${op} INTERVAL ${n} DAY`)
+    if (s !== beforeDateArith) warnings.push('Converted SYSDATE date arithmetic to INTERVAL')
+
+    // TRUNC must run before SYSDATE, or its argument is already rewritten.
     s = s.replace(/\bTRUNC\s*\((SYSDATE|SYSTIMESTAMP|CURRENT_DATE|CURRENT_TIMESTAMP)\)/gi, 'DATE($1)')
     s = s.replace(/\bTRUNC\s*\((\w+(?:\.\w+)?)\)/gi, 'CAST($1 AS DATE)')
 
