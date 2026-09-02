@@ -34,6 +34,8 @@ describe('ruleForWarning', () => {
     expect(ruleForWarning('Converted SYSDATE date arithmetic to INTERVAL'))
       .toBe(RULES.sysdateArithmeticToInterval)
     expect(ruleForWarning('Converted SYSDATE to NOW()')).toBe(RULES.sysdateToNow)
+    expect(ruleForWarning('ROWNUM + ORDER BY — check the result set matches'))
+      .toBe(RULES.rownumOrderByCaveat)
   })
 
   it('maps a gate warning through its reason', () => {
@@ -58,6 +60,7 @@ describe('ruleForWarning', () => {
       "SELECT TO_CHAR(d, 'YYYY-MM-DD') FROM t",
       "SELECT TO_DATE('x', 'YYYY') FROM t",
       'SELECT * FROM t WHERE d > SYSDATE - 7',
+      'SELECT * FROM emp WHERE ROWNUM <= 5 ORDER BY sal DESC',
     ]
     for (const sql of samples) {
       for (const w of oracleToMysql.convert(sql).warnings) {

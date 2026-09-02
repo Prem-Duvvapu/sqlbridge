@@ -24,6 +24,30 @@ describe('Oracle → MySQL', () => {
       .toBe('SELECT * FROM emp LIMIT 10')
   })
 
+  // RCA-009: Oracle assigns ROWNUM before ORDER BY sorts, so ROWNUM <= n ORDER BY x
+  // doesn't reliably return the top n rows by x — the converted LIMIT sorts first and
+  // can return a different row set. Flagged, not blocked: the SQL is valid, and often
+  // closer to what was actually intended.
+  it('flags ROWNUM <= n combined with ORDER BY as a result-set caveat', () => {
+    const r = o2m('SELECT * FROM emp WHERE ROWNUM <= 5 ORDER BY sal DESC')
+    expect(r.output).toContain('LIMIT 5')
+    expect(warnsAbout(r, 'ROWNUM + ORDER BY')).toBe(true)
+  })
+
+  it('flags ROWNUM = 1 combined with ORDER BY as a result-set caveat', () => {
+    expect(warnsAbout(o2m('SELECT * FROM emp WHERE ROWNUM = 1 ORDER BY hire_date'), 'ROWNUM + ORDER BY'))
+      .toBe(true)
+  })
+
+  it('flags a sibling-condition ROWNUM <= n combined with ORDER BY', () => {
+    expect(warnsAbout(o2m('SELECT * FROM emp WHERE dept_id = 10 AND ROWNUM <= 5 ORDER BY sal DESC'), 'ROWNUM + ORDER BY'))
+      .toBe(true)
+  })
+
+  it('does not flag ROWNUM pagination without an ORDER BY', () => {
+    expect(warnsAbout(o2m('SELECT * FROM emp WHERE ROWNUM <= 5'), 'ROWNUM + ORDER BY')).toBe(false)
+  })
+
   it('strips a trailing semicolon alongside ROWNUM', () => {
     expect(o2m('SELECT * FROM emp WHERE ROWNUM <= 5;').output)
       .toBe('SELECT * FROM emp LIMIT 5')

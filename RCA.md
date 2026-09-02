@@ -5,6 +5,47 @@ what now does. Newest first.
 
 ---
 
+## RCA-009 — `ROWNUM <= n` combined with `ORDER BY` can return a different row set
+
+- **Found:** 2026-09-02, the final item from the 2026-09-02 audit (RCA-006).
+- **Severity:** medium — the converted SQL is valid and often what was actually wanted,
+  but it isn't guaranteed to be the same query. No warning fired.
+
+**Symptom.** Oracle assigns `ROWNUM` to rows **as they're fetched**, before `ORDER BY`
+sorts the result — so `WHERE ROWNUM <= 5 ORDER BY sal DESC` filters to *some* 5 rows
+(whichever the query plan happens to fetch first) and only then sorts those 5. It does
+**not** reliably return the 5 highest-paid employees; that's a well-known Oracle gotcha,
+usually worked around with a nested subquery (`ORDER BY` inside, `ROWNUM` outside).
+
+The mechanical conversion — `... ORDER BY sal DESC LIMIT 5` — sorts *first*, then takes
+the top 5. That's a different operation: often the more useful one, and arguably what the
+original query was trying to do, but not a faithful translation of what the Oracle query
+actually returns. Converting it silently changes which rows come back, with nothing in
+the output flagging that the semantics shifted.
+
+**Root cause.** The `ROWNUM <= n` → `LIMIT n` rewrite is a syntax swap with no notion of
+*when* each database applies the cap relative to sorting — it had no way to know this
+combination is exactly the shape where that timing difference is observable.
+
+**Fix.** Not a block — the output SQL is valid, and disabling conversion here would be
+overcautious for a case that already usually improves on the original query's own bug.
+Instead, `oracleToMysql.ts` now checks the statement for `ORDER BY` immediately after any
+of the three `ROWNUM`→`LIMIT` rewrites succeeds, and pushes an additional `caution`-level
+note (`rownumOrderByCaveat`) naming the risk, so it's visible instead of silent.
+
+**Why tests missed it.** Every existing `ROWNUM`→`LIMIT` test used a query with no
+`ORDER BY` — the combination that triggers the difference was never exercised.
+
+**How we catch it now.** `converters.test.ts`: the caveat fires for all three `ROWNUM`
+shapes (`= 1`, standalone `<= n`, `<= n` alongside another condition) when `ORDER BY` is
+present, and stays silent when it isn't. `rules.test.ts` covers the warning-to-rule
+mapping.
+
+This was the last item from RCA-006's audit; ROADMAP's Correctness hardening section is
+now fully checked off.
+
+---
+
 ## RCA-008 — `SYSDATE ± n` silently changed from date arithmetic to number arithmetic
 
 - **Found:** 2026-09-02, the last unscheduled item from the 2026-09-02 audit (RCA-006).
