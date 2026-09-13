@@ -16,6 +16,7 @@
 const TAB_KEY = 'sqlbridge:tab'
 const LAST_KEY = 'sqlbridge:last'
 const THEME_KEY = 'sqlbridge:theme'
+const TOUR_KEY = 'sqlbridge:tour-seen'
 const VERSION = 1
 
 export interface Workspace {
@@ -92,4 +93,17 @@ export function loadTheme(): 'light' | 'dark' {
 
 export function saveTheme(theme: 'light' | 'dark'): void {
   write(() => localStorage, THEME_KEY, theme)
+}
+
+/**
+ * Device-wide, like theme: once the tour has been seen or dismissed, it doesn't
+ * auto-launch again on a fresh tab. The "Take a tour" button in the header still
+ * re-runs it on demand regardless of this flag.
+ */
+export function loadTourSeen(): boolean {
+  return read(() => localStorage, TOUR_KEY) === '1'
+}
+
+export function saveTourSeen(): void {
+  write(() => localStorage, TOUR_KEY, '1')
 }
