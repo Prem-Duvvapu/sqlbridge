@@ -666,6 +666,7 @@ function App() {
           ))}
         </span>
       </footer>
+      <p className="colophon-credit">Developed by Prem Duvvapu</p>
 
       {tourActive && <Tour steps={TOUR_STEPS} onFinish={finishTour} />}
     </div>
