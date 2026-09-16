@@ -1001,6 +1001,13 @@ body {
 .colophon a:hover { color: var(--ink); border-color: currentColor; }
 .colophon-link-disabled { color: var(--ink-faint); opacity: 0.5; cursor: not-allowed; }
 
+.colophon-credit {
+  margin: 8px 0 0;
+  font-size: 11.5px;
+  text-align: center;
+  color: var(--ink-faint);
+}
+
 /* ── responsive ───────────────────────────────────────────────────────── */
 
 @media (max-width: 900px) {
