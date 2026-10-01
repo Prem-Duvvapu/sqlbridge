@@ -1,6 +1,8 @@
 // @vitest-environment jsdom
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { loadTheme, loadWorkspace, saveTheme, saveWorkspace, type Workspace } from './persistence'
+import {
+  loadTheme, loadTourSeen, loadWorkspace, saveTheme, saveTourSeen, saveWorkspace, type Workspace,
+} from './persistence'
 
 const workspace: Workspace = {
   input: 'SELECT 1',
@@ -72,6 +74,22 @@ describe('theme', () => {
   it('treats any non-"dark" value as light', () => {
     localStorage.setItem('sqlbridge:theme', 'system')
     expect(loadTheme()).toBe('light')
+  })
+})
+
+describe('tour seen flag', () => {
+  it('defaults to unseen with nothing stored', () => {
+    expect(loadTourSeen()).toBe(false)
+  })
+
+  it('round-trips once saved', () => {
+    saveTourSeen()
+    expect(loadTourSeen()).toBe(true)
+  })
+
+  it('treats any non-"1" value as unseen', () => {
+    localStorage.setItem('sqlbridge:tour-seen', 'true')
+    expect(loadTourSeen()).toBe(false)
   })
 })
 

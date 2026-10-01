@@ -211,6 +211,51 @@ describe('App — persistence', () => {
   })
 })
 
+describe('App — tour', () => {
+  it('auto-launches on a genuinely first visit and Skip persists that it was seen', async () => {
+    render(<App />)
+    expect(screen.getByRole('dialog', { name: /welcome to sqlbridge/i })).toBeInTheDocument()
+
+    await userEvent.click(screen.getByRole('button', { name: 'Skip' }))
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+    expect(localStorage.getItem('sqlbridge:tour-seen')).toBe('1')
+  })
+
+  it('does not auto-launch again once a workspace has been saved', () => {
+    render(<App />).unmount()
+    render(<App />)
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+  })
+
+  it('does not auto-launch once the tour has been seen, even on a fresh tab', () => {
+    localStorage.setItem('sqlbridge:tour-seen', '1')
+    render(<App />)
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+  })
+
+  it('"Take a tour" reopens it on demand regardless of the seen flag', async () => {
+    localStorage.setItem('sqlbridge:tour-seen', '1')
+    render(<App />)
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+
+    await userEvent.click(screen.getByRole('button', { name: 'Take a tour' }))
+    expect(screen.getByRole('dialog', { name: /welcome to sqlbridge/i })).toBeInTheDocument()
+  })
+
+  it('walks through every step to Done without losing the workspace', async () => {
+    render(<App />)
+    const before = editor(/oracle sql input/i).value
+
+    for (let i = 0; i < 7; i++) {
+      await userEvent.click(screen.getByRole('button', { name: 'Next' }))
+    }
+    await userEvent.click(screen.getByRole('button', { name: 'Done' }))
+
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+    expect(editor(/oracle sql input/i).value).toBe(before)
+  })
+})
+
 describe('App — round-trip', () => {
   it('is disabled when there is no output to verify', async () => {
     render(<App />)

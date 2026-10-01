@@ -205,6 +205,12 @@ body {
   letter-spacing: -0.02em;
 }
 
+.masthead-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
 .wordmark-glyph {
   font-size: 22px;
   line-height: 1;
@@ -898,6 +904,84 @@ body {
 
 .sample-label { font-size: 13.5px; color: var(--ink); }
 
+/* ── tour ─────────────────────────────────────────────────────────────── */
+
+.tour {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+}
+
+.tour-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgb(13 19 26 / 55%);
+}
+
+/* The spotlight is one box whose own oversized box-shadow darkens everything else —
+   no separate mask pieces needed, and it tracks the target's rect exactly. */
+.tour-spotlight {
+  position: fixed;
+  border-radius: var(--radius-lg);
+  box-shadow: 0 0 0 9999px rgb(13 19 26 / 55%);
+  outline: 2px solid var(--focus);
+  outline-offset: 2px;
+  pointer-events: none;
+  transition: top var(--transition), left var(--transition), width var(--transition), height var(--transition);
+}
+
+.tour-tooltip {
+  position: fixed;
+  width: 320px;
+  max-width: calc(100vw - 24px);
+  background: var(--surface);
+  border: 1px solid var(--rule-strong);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow);
+  padding: 14px 16px 16px;
+}
+
+.tour-tooltip-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 6px;
+}
+
+.tour-step-count {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--ink-faint);
+}
+
+.tour-skip {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--ink-faint);
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 0;
+}
+
+.tour-skip:hover { color: var(--ink-soft); text-decoration: underline; }
+
+.tour-title { margin: 0 0 6px; font-size: 15px; color: var(--ink); }
+.tour-body { margin: 0 0 14px; font-size: 13px; line-height: 1.5; color: var(--ink-soft); }
+
+.tour-tooltip-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.tour-primary {
+  color: var(--ink);
+  border-color: var(--ink-faint);
+}
+
 /* ── colophon ─────────────────────────────────────────────────────────── */
 
 .colophon {
@@ -916,6 +1000,13 @@ body {
 .colophon a { color: var(--ink-soft); text-decoration: none; border-bottom: 1px solid var(--rule-strong); }
 .colophon a:hover { color: var(--ink); border-color: currentColor; }
 .colophon-link-disabled { color: var(--ink-faint); opacity: 0.5; cursor: not-allowed; }
+
+.colophon-credit {
+  margin: 8px 0 0;
+  font-size: 11.5px;
+  text-align: center;
+  color: var(--ink-faint);
+}
 
 /* ── responsive ───────────────────────────────────────────────────────── */
 

@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import type { ConversionNote } from './converters'
 import { convert, getSources, getTargetsFor } from './converters'
 import type { Workspace } from './persistence'
-import { loadTheme, loadWorkspace, saveTheme, saveWorkspace } from './persistence'
+import { loadTheme, loadTourSeen, loadWorkspace, saveTheme, saveTourSeen, saveWorkspace } from './persistence'
 import { format } from './format'
 import { SqlInput, SqlView } from './SqlEditor'
 import { diffSql } from './diff'
@@ -13,6 +13,7 @@ import { buildShareUrl, clearShareToken, decodeShare, encodeShare, readShareToke
 import { splitStatements } from './sql/split'
 import { roundTrip, type RoundTripResult } from './roundTrip'
 import { RoundTripPanel } from './RoundTripPanel'
+import { Tour, type TourStep } from './Tour'
 import './App.css'
 
 interface Sample {
@@ -55,6 +56,51 @@ const SAMPLES: readonly Sample[] = [
   },
 ]
 
+// Targets are `data-tour` hooks on the elements below, not CSS classes — classes are
+// styling and can move independently of what the tour needs to point at.
+const TOUR_STEPS: readonly TourStep[] = [
+  {
+    target: '[data-tour="wordmark"]',
+    title: 'Welcome to SQLBridge',
+    body: 'Translate SQL between Oracle and MySQL, entirely in your browser — nothing you paste here is sent to a server.',
+  },
+  {
+    target: '[data-tour="bridge"]',
+    title: 'Pick a direction',
+    body: "Choose the dialect you're converting from and to, then use the arrow in the middle to swap them.",
+  },
+  {
+    target: '[data-tour="convert"]',
+    title: 'Convert',
+    body: 'Click Convert, or press ⌘/Ctrl+Enter from either panel, to translate the SQL on the left.',
+  },
+  {
+    target: '[data-tour="source-panel"]',
+    title: 'Paste your SQL',
+    body: 'Type, paste, or drop a .sql file here. A script with several statements is split and converted one at a time.',
+  },
+  {
+    target: '[data-tour="target-panel"]',
+    title: 'Read the result',
+    body: "The translated SQL appears here. Anything SQLBridge can't safely rewrite is flagged instead of guessed at.",
+  },
+  {
+    target: '[data-tour="toolbar"]',
+    title: 'More tools',
+    body: 'Reformat both panels, copy a share link, or check a round-trip translation for unexpected differences.',
+  },
+  {
+    target: '[data-tour="samples"]',
+    title: 'Try an example',
+    body: "Not sure where to start? Load one of these worked examples to see a conversion right away.",
+  },
+  {
+    target: '[data-tour="theme-toggle"]',
+    title: 'Light or dark',
+    body: 'Switch themes anytime — your choice is remembered on this device.',
+  },
+]
+
 // Feedback links are kept but switched off for now — flip this to true to re-enable.
 const FEEDBACK_LINKS_ENABLED = false
 const FEEDBACK_LINKS = [
@@ -78,10 +124,14 @@ function App() {
   // A share link overrides whatever this tab had — start it blank and let the effect
   // below fill it in once the token is decoded, rather than flashing the stored workspace.
   const shareToken = useMemo(readShareToken, [])
+  const storedWorkspace = useMemo(loadWorkspace, [])
   const initial = useMemo(
-    () => (shareToken ? EMPTY_WORKSPACE : loadWorkspace() ?? seedWorkspace()),
-    [shareToken],
+    () => (shareToken ? EMPTY_WORKSPACE : storedWorkspace ?? seedWorkspace()),
+    [shareToken, storedWorkspace],
   )
+  // A genuine first visit (no stored workspace, no incoming share link) is when the
+  // tour offers itself automatically; otherwise it only runs from the header button.
+  const isFirstVisit = !shareToken && storedWorkspace === null
   const dialects = useMemo(getSources, [])
 
   const [source, setSource] = useState(initial.source)
@@ -97,6 +147,7 @@ function App() {
   const [notice, setNotice] = useState<string | null>(null)
   const [view, setView] = useState<'split' | 'diff'>('split')
   const [roundTripResult, setRoundTripResult] = useState<RoundTripResult | null>(null)
+  const [tourActive, setTourActive] = useState(false)
 
   const copyTimer = useRef<number | undefined>(undefined)
   const shareTimer = useRef<number | undefined>(undefined)
@@ -158,6 +209,23 @@ function App() {
     window.clearTimeout(copyTimer.current)
     window.clearTimeout(shareTimer.current)
   }, [])
+
+  // Offer the tour once, on a genuinely fresh browser — never re-launch it just because
+  // a tab was closed and reopened (loadTourSeen persists across sessions in localStorage).
+  useEffect(() => {
+    if (isFirstVisit && !loadTourSeen()) setTourActive(true)
+  }, [isFirstVisit])
+
+  function startTour() {
+    setView('split')
+    setRoundTripResult(null)
+    setTourActive(true)
+  }
+
+  function finishTour() {
+    setTourActive(false)
+    saveTourSeen()
+  }
 
   const targets = useMemo(() => getTargetsFor(source), [source])
   const canConvert = input.trim().length > 0 && source !== target
@@ -303,22 +371,33 @@ function App() {
       <DropOverlay isDragging={fileImport.isDragging} />
 
       <header className="masthead">
-        <div className="wordmark">
+        <div className="wordmark" data-tour="wordmark">
           <span className="wordmark-glyph" aria-hidden="true">⇌</span>
           <span className="wordmark-text">SQLBridge</span>
         </div>
-        <button
-          type="button"
-          className="ghost-button"
-          onClick={() => setTheme(t => (t === 'dark' ? 'light' : 'dark'))}
-          aria-label={`Switch to ${theme === 'dark' ? 'light' : 'dark'} theme`}
-        >
-          {theme === 'dark' ? 'Light' : 'Dark'}
-        </button>
+        <div className="masthead-actions">
+          <button
+            type="button"
+            className="ghost-button"
+            onClick={startTour}
+            title="Take a short guided tour of SQLBridge"
+          >
+            Take a tour
+          </button>
+          <button
+            type="button"
+            className="ghost-button"
+            data-tour="theme-toggle"
+            onClick={() => setTheme(t => (t === 'dark' ? 'light' : 'dark'))}
+            aria-label={`Switch to ${theme === 'dark' ? 'light' : 'dark'} theme`}
+          >
+            {theme === 'dark' ? 'Light' : 'Dark'}
+          </button>
+        </div>
       </header>
 
       {/* The bridge: direction is the primary control, so it gets the primary space. */}
-      <section className="bridge" aria-label="Conversion direction">
+      <section className="bridge" aria-label="Conversion direction" data-tour="bridge">
         <label className="bridge-end bridge-end-source">
           <span className="bridge-label">From</span>
           <select
@@ -364,7 +443,13 @@ function App() {
           </select>
         </label>
 
-        <button type="button" className="convert-button" onClick={runConvert} disabled={!canConvert}>
+        <button
+          type="button"
+          className="convert-button"
+          data-tour="convert"
+          onClick={runConvert}
+          disabled={!canConvert}
+        >
           Convert
           <kbd className="convert-hint">⌘↵</kbd>
         </button>
@@ -385,7 +470,7 @@ function App() {
       )}
 
       <div className="panel-toolbar">
-        <div className="panel-toolbar-actions">
+        <div className="panel-toolbar-actions" data-tour="toolbar">
           <button
             type="button"
             className="ghost-button ghost-button-sm"
@@ -456,7 +541,7 @@ function App() {
         />
       ) : (
       <main className="panels">
-        <section className="panel" data-role="source">
+        <section className="panel" data-role="source" data-tour="source-panel">
           <div className="panel-head">
             <h2 className="panel-title">{labelFor(source)}</h2>
             <div className="panel-head-actions">
@@ -483,7 +568,7 @@ function App() {
           />
         </section>
 
-        <section className="panel" data-role="target">
+        <section className="panel" data-role="target" data-tour="target-panel">
           <div className="panel-head">
             <h2 className="panel-title">{labelFor(target)}</h2>
             <div className="panel-head-actions">
@@ -556,7 +641,7 @@ function App() {
         )
       })()}
 
-      <section className="samples" aria-label="Sample queries">
+      <section className="samples" aria-label="Sample queries" data-tour="samples">
         <h2 className="samples-title">Samples</h2>
         <div className="samples-grid">
           {SAMPLES.map(sample => (
@@ -593,6 +678,9 @@ function App() {
           ))}
         </span>
       </footer>
+      <p className="colophon-credit">Developed by Prem Duvvapu</p>
+
+      {tourActive && <Tour steps={TOUR_STEPS} onFinish={finishTour} />}
     </div>
   )
 }
