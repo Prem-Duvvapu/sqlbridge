@@ -1,3 +1,5 @@
+import { specialSpanEnd } from './quoted'
+
 /**
  * Split a SQL script into statements.
  *
@@ -86,6 +88,16 @@ export function splitStatements(script: string): Statement[] {
   while (i < script.length) {
     const ch = script[i]
     const atLineStart = i === 0 || script[i - 1] === '\n'
+
+    // Keep PostgreSQL literal bodies (including internal semicolons) together.
+    // A custom MySQL delimiter such as $$ still takes precedence at its terminator.
+    const specialEnd = script.startsWith(delimiter, i) ? undefined : specialSpanEnd(script, i)
+    if (specialEnd === -1) return oneStatement(script)
+    if (specialEnd !== undefined) {
+      for (let k = i; k < specialEnd; k++) if (script[k] === '\n') line++
+      i = specialEnd
+      continue
+    }
 
     // ── strings and quoted identifiers — consume without interpreting ──
     if (ch === "'" || ch === '"' || ch === '`') {

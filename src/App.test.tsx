@@ -311,3 +311,24 @@ describe('App — format', () => {
     expect(editor(/oracle sql input/i)).toHaveValue('SELECT 1 FROM DUAL')
   })
 })
+
+describe('App — PostgreSQL', () => {
+  it('selects PostgreSQL as a target and converts the query', async () => {
+    render(<App />)
+    await userEvent.selectOptions(screen.getByRole('combobox', { name: /to/i }), 'postgresql')
+    const input = editor(/oracle sql input/i)
+    await userEvent.clear(input)
+    await userEvent.type(input, 'SELECT NVL(x, 0) FROM t')
+    await userEvent.click(screen.getByRole('button', { name: /convert/i }))
+    expect(screen.getByLabelText(/postgresql sql output/i).textContent).toContain('COALESCE(x, 0)')
+  })
+  it('selects PostgreSQL as a source', async () => {
+    render(<App />)
+    await userEvent.selectOptions(screen.getByRole('combobox', { name: /from/i }), 'postgresql')
+    const input = editor(/postgresql sql input/i)
+    await userEvent.clear(input)
+    await userEvent.type(input, 'SELECT LENGTH(name) FROM users LIMIT 5')
+    await userEvent.click(screen.getByRole('button', { name: /convert/i }))
+    expect(screen.getByLabelText(/mysql sql output/i).textContent).toContain('CHAR_LENGTH(name)')
+  })
+})
