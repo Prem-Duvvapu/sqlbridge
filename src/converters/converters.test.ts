@@ -406,7 +406,7 @@ describe('registry', () => {
   })
 
   it('returns an error result for an unknown pair instead of throwing', () => {
-    const r = convert('SELECT 1', 'oracle', 'postgresql')
+    const r = convert('SELECT 1', 'oracle', 'sqlserver')
     expect(r.output).toContain('No converter available')
     expect(r.warnings).toHaveLength(1)
   })
@@ -427,12 +427,12 @@ describe('registry', () => {
   })
 
   it('lists each source dialect once', () => {
-    expect(getSources().map(d => d.name)).toEqual(['oracle', 'mysql'])
-    expect(getSources().map(d => d.label)).toEqual(['Oracle', 'MySQL'])
+    expect(getSources().map(d => d.name)).toEqual(['oracle', 'mysql', 'postgresql'])
+    expect(getSources().map(d => d.label)).toEqual(['Oracle', 'MySQL', 'PostgreSQL'])
   })
 
   it('lists reachable targets for a source', () => {
-    expect(getTargetsFor('oracle').map(d => d.name)).toEqual(['mysql'])
+    expect(getTargetsFor('oracle').map(d => d.name)).toEqual(['mysql', 'postgresql'])
     expect(getTargetsFor('nope')).toEqual([])
   })
 })

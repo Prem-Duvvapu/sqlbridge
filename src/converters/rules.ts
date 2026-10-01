@@ -22,6 +22,43 @@ export interface Rule {
 const define = <T extends Record<string, Rule>>(rules: T): T => rules
 
 export const RULES = define({
+  postgresCompatibility: {
+    id: 'postgres-compatibility', title: 'PostgreSQL compatibility',
+    detail: 'This construct needs a manual rewrite for the selected dialect. The original statement is preserved.',
+    severity: 'blocked',
+  },
+  postgresNull: {
+    id: 'postgres-null', title: 'COALESCE null handling',
+    detail: 'COALESCE selects the first non-null argument. Type coercion and Oracle empty-string handling can differ.',
+    severity: 'caution', roundTripLossy: true,
+  },
+  postgresDates: {
+    id: 'postgres-dates', title: 'Date and time functions',
+    detail: 'Review time zones, precision and timing: PostgreSQL CURRENT_TIMESTAMP reflects the start of the transaction.',
+    severity: 'caution', roundTripLossy: true,
+  },
+  postgresTypes: {
+    id: 'postgres-types', title: 'Column type mapping',
+    detail: 'Common column types are mapped. Check value ranges, precision and date semantics against the destination schema.',
+    severity: 'caution', roundTripLossy: true,
+  },
+  postgresIdentifiers: {
+    id: 'postgres-identifiers', title: 'Identifier quoting',
+    detail: 'PostgreSQL uses double quotes for identifiers; MySQL uses backticks. Review identifier case against the destination schema.',
+    severity: 'caution',
+  },
+  postgresPagination: {
+    id: 'postgres-pagination', title: 'Pagination syntax',
+    detail: 'Numeric row limits and offsets are expressed using the destination dialect syntax.', severity: 'info',
+  },
+  postgresFunctions: {
+    id: 'postgres-functions', title: 'Character length',
+    detail: 'Character length uses LENGTH in PostgreSQL and CHAR_LENGTH in MySQL.', severity: 'info',
+  },
+  postgresDual: {
+    id: 'postgres-dual', title: 'Oracle DUAL table',
+    detail: 'Oracle uses FROM DUAL for table-free SELECT expressions; PostgreSQL does not need it.', severity: 'info',
+  },
   // ── pagination ──
   rownumToLimit: {
     id: 'rownum-to-limit',
@@ -196,6 +233,14 @@ export type RuleKey = keyof typeof RULES
 
 /** Warning strings the converters push, mapped to their rule. */
 const MESSAGE_TO_RULE: ReadonlyArray<readonly [string, Rule]> = [
+  ['PostgreSQL null handling:', RULES.postgresNull],
+  ['PostgreSQL dates:', RULES.postgresDates],
+  ['PostgreSQL types:', RULES.postgresTypes],
+  ['PostgreSQL identifiers:', RULES.postgresIdentifiers],
+  ['PostgreSQL pagination:', RULES.postgresPagination],
+  ['PostgreSQL functions:', RULES.postgresFunctions],
+  ['PostgreSQL dual:', RULES.postgresDual],
+
   ['Converted ROWNUM', RULES.rownumToLimit],
   ['ROWNUM + ORDER BY', RULES.rownumOrderByCaveat],
   ['Converted FETCH FIRST', RULES.fetchToLimit],
@@ -218,6 +263,7 @@ const MESSAGE_TO_RULE: ReadonlyArray<readonly [string, Rule]> = [
 ]
 
 const BLOCKED_REASON_TO_RULE: ReadonlyArray<readonly [string, Rule]> = [
+  ['PostgreSQL compatibility:', RULES.postgresCompatibility],
   ['CONNECT BY hierarchical query', RULES.connectBy],
   ['Sequence reference (NEXTVAL)', RULES.sequenceNextval],
   ['Sequence reference (CURRVAL)', RULES.sequenceCurrval],

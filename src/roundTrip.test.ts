@@ -36,9 +36,9 @@ describe('roundTrip', () => {
   })
 
   it('is unavailable when there is no reverse converter', () => {
-    const result = roundTrip('SELECT 1', 'mysql', 'postgresql')
+    const result = roundTrip('SELECT 1', 'mysql', 'sqlserver')
     expect(result.available).toBe(false)
-    expect(result.unavailableReason).toMatch(/postgresql.*mysql/i)
+    expect(result.unavailableReason).toMatch(/sqlserver.*mysql/i)
     expect(result.matches).toBe(true)
   })
 })

@@ -1,3 +1,4 @@
+import { oracleToPostgresql, mysqlToPostgresql, postgresqlToOracle, postgresqlToMysql } from './postgresql'
 import type { Converter, ConversionNote, ConvertResult, Dialect, StatementResult } from './types'
 import { oracleToMysql } from './oracleToMysql'
 import { mysqlToOracle } from './mysqlToOracle'
@@ -8,7 +9,7 @@ import { joinStatements, splitStatements, type Statement } from '../sql/split'
  * Every conversion direction the app supports. Adding a dialect pair means writing one
  * more `Converter` and listing it here — nothing else needs to change.
  */
-const CONVERTERS: readonly Converter[] = [oracleToMysql, mysqlToOracle]
+const CONVERTERS: readonly Converter[] = [oracleToMysql, mysqlToOracle, oracleToPostgresql, mysqlToPostgresql, postgresqlToOracle, postgresqlToMysql]
 
 const LABELS: Readonly<Record<string, string>> = {
   oracle: 'Oracle',
@@ -138,7 +139,7 @@ export function getTargetsFor(source: string): Dialect[] {
     .map(c => ({ name: c.target, label: label(c.target) }))
 }
 
-export { oracleToMysql, mysqlToOracle }
+export { oracleToMysql, mysqlToOracle, oracleToPostgresql, mysqlToPostgresql, postgresqlToOracle, postgresqlToMysql }
 export type {
   Converter, ConversionNote, ConvertResult, Dialect, StatementConversion, StatementResult,
 } from './types'

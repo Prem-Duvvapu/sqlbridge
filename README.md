@@ -1,6 +1,6 @@
 # SQLBridge
 
-Translate SQL between database dialects (Oracle ↔ MySQL, extensible to any pair). Runs
+Translate SQL between database dialects (Oracle ↔ MySQL ↔ PostgreSQL, including Oracle ↔ PostgreSQL). Runs
 entirely in the browser — paste a query, pick a direction, read the translation.
 
 [![CI](https://github.com/Prem-Duvvapu/sqlbridge/actions/workflows/ci.yml/badge.svg)](https://github.com/Prem-Duvvapu/sqlbridge/actions/workflows/ci.yml)
@@ -82,6 +82,7 @@ src/
 │   ├── types.ts          Converter / StatementConversion / ConvertResult
 │   ├── oracleToMysql.ts   one Converter per direction (single-statement)
 │   ├── mysqlToOracle.ts
+│   ├── postgresql.ts      direct PostgreSQL conversions for Oracle and MySQL
 │   ├── index.ts           registry + convertScript (split → convert → re-join)
 │   └── rules.ts           rule catalogue — the "why" behind each rewrite
 ├── sql/split.ts          statement splitter (strings, comments, PL/SQL blocks)
@@ -171,6 +172,27 @@ Reverse (MySQL → Oracle) is also supported, plus `IF()` → `CASE`, `UUID()` �
 `DATABASE()`/`CONNECTION_ID()` → `SYS_CONTEXT(…)`, `DATE_ADD` → `INTERVAL` arithmetic,
 `DATEDIFF` → date subtraction, multi-row `INSERT` → `INSERT ALL`, `SELECT 1` →
 `SELECT 1 FROM DUAL`, and the data-type map in reverse.
+
+## PostgreSQL support
+
+PostgreSQL is available as both source and target for Oracle and MySQL, including
+formatting, scripts, sharing and round-trip checks. These are direct conversions.
+
+- Oracle/MySQL → PostgreSQL: `NVL`/`IFNULL` → `COALESCE`, current date/time
+  functions, removal of `FROM DUAL`, numeric pagination, identifier quoting and
+  common `CREATE TABLE` column types.
+- PostgreSQL → Oracle: numeric `LIMIT`/`OFFSET` → `FETCH`/`OFFSET`, `NOW()` →
+  `CURRENT_TIMESTAMP`, `FROM DUAL` for table-free selects, and common column types.
+- PostgreSQL → MySQL: identifier quoting, character length and common column types;
+  shared syntax such as `COALESCE` and `LIMIT` remains unchanged.
+
+This initial subset flags unsupported constructs for manual rewriting, including
+stored programs, dollar-quoted/escape literals, PostgreSQL casts (`::`), arrays,
+JSON operators, `ILIKE`, `RETURNING`, `ON CONFLICT`, serial/identity columns, and
+vendor-specific aggregation. Scripts keep dollar-quoted bodies together, even when
+those bodies contain semicolons. Review notes for type, timestamp and null semantics.
+
+PostgreSQL syntax reference: [lexical structure](https://www.postgresql.org/docs/current/sql-syntax-lexical.html).
 
 ## Caveats
 

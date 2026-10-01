@@ -36,6 +36,18 @@ const SAMPLES: readonly Sample[] = [
     target: 'oracle',
   },
   {
+    label: 'Oracle to PostgreSQL',
+    sql: 'SELECT name, NVL(salary, 0), SYSDATE\nFROM emp\nFETCH FIRST 5 ROWS ONLY',
+    source: 'oracle',
+    target: 'postgresql',
+  },
+  {
+    label: 'PostgreSQL to Oracle',
+    sql: 'SELECT name, COALESCE(salary, 0)\nFROM emp\nLIMIT 5 OFFSET 10',
+    source: 'postgresql',
+    target: 'oracle',
+  },
+  {
     label: 'Needs a manual rewrite',
     sql: 'SELECT emp_id, mgr_id\nFROM emp\nSTART WITH mgr_id IS NULL\nCONNECT BY PRIOR emp_id = mgr_id',
     source: 'oracle',
